@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "title": "Drawable Konva",
   "author": {
-    "github": "YOUR_GITHUB_USERNAME",
+    "github": "gsiogkas",
     "displayName": "George Siogkas"
   },
   "links": {
-    "github": "https://github.com/YOUR_GITHUB_USERNAME/streamlit-drawable-konva",
+    "github": "https://github.com/gsiogkas/streamlit-drawable-konva",
     "pypi": "streamlit-drawable-konva",
     "demo": "https://YOUR_APP_SLUG.streamlit.app",
-    "docs": "https://github.com/YOUR_GITHUB_USERNAME/streamlit-drawable-konva#readme"
+    "docs": "https://github.com/gsiogkas/streamlit-drawable-konva#readme"
   },
   "media": {
     "image": null
