@@ -1,0 +1,2 @@
+recursive-include streamlit_drawable_konva/frontend/build *
+include streamlit_drawable_konva/pyproject.toml

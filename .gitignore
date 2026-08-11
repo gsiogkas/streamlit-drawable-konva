@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+/dist/
+/build/
+.venv/
+venv/
+
+# Node / frontend
+node_modules/
+streamlit_drawable_konva/frontend/node_modules/
+# Keep streamlit_drawable_konva/frontend/build/ committed for packaged CCv2 + Cloud
+*.log
+.npm/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Misc
+tmp/
+_scaffold/
+_component_template/

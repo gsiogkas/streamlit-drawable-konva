@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "streamlit-drawable-konva"
+version = "0.1.0"
+description = "Streamlit drawable canvas component using Konva.js (Components v2)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [
+  { name = "George Siogkas", email = "gsiogkas@cvrlab.com" },
+]
+dependencies = [
+  "streamlit>=1.51",
+  "numpy",
+  "pillow",
+]
+
+[project.urls]
+Homepage = "https://github.com/YOUR_GITHUB_USER/streamlit-drawable-konva"
+Documentation = "https://github.com/YOUR_GITHUB_USER/streamlit-drawable-konva#readme"
+Repository = "https://github.com/YOUR_GITHUB_USER/streamlit-drawable-konva"
+Issues = "https://github.com/YOUR_GITHUB_USER/streamlit-drawable-konva/issues"
+# Demo = "https://YOUR_APP_SLUG.streamlit.app"  # uncomment after Cloud deploy
+
+
+[project.optional-dependencies]
+demo = ["pandas"]
+devel = [
+  "wheel",
+  "pandas",
+]
+
+[dependency-groups]
+demo = ["pandas"]
+dev = ["pandas", "wheel"]
+
+[tool.setuptools.packages.find]
+include = ["streamlit_drawable_konva*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+streamlit_drawable_konva = ["frontend/build/**/*", "pyproject.toml"]
+
+[tool.uv]
+default-groups = ["demo"]

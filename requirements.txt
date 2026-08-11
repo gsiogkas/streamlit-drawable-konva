@@ -1,0 +1,6 @@
+# Streamlit Community Cloud installs from this file.
+streamlit>=1.51
+numpy
+pillow
+pandas
+.
