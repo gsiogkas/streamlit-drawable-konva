@@ -5,17 +5,22 @@ from __future__ import annotations
 import base64
 import io
 from dataclasses import dataclass
-from typing import Any, Optional
+from functools import lru_cache
+from typing import Any, Callable, Optional
 
 import numpy as np
 import streamlit as st
 from PIL import Image
 
-_COMPONENT = st.components.v2.component(
-    "streamlit-drawable-konva.st_canvas",
-    js="index.js",
-    html='<div class="react-root"></div>',
-)
+
+@lru_cache(maxsize=1)
+def _get_component() -> Callable[..., Any]:
+    """Register the CCv2 component on first use (requires Streamlit runtime)."""
+    return st.components.v2.component(
+        "streamlit-drawable-konva.st_canvas",
+        js="index.js",
+        html='<div class="react-root"></div>',
+    )
 
 
 @dataclass
@@ -135,7 +140,7 @@ def st_canvas(
         toolbar_h = 72 if enable_viewport_controls else 40
     component_height = height + toolbar_h + 8
 
-    raw = _COMPONENT(
+    raw = _get_component()(
         key=key,
         data={
             "fillColor": fill_color,
