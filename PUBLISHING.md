@@ -1,8 +1,12 @@
 # Publishing guide
 
-Do these in order: **GitHub → PyPI → Streamlit `.app` demo → Components gallery**.
+Do these in order for a **first** release: **GitHub → PyPI → Streamlit `.app` demo → Components gallery**.
+
+For later releases, see [Updating an existing release](#updating-an-existing-release-eg-010--020) below.
 
 Replace `YOUR_GITHUB_USER` and `YOUR_APP_SLUG` with your values.
+
+Current package version: **0.2.0**
 
 ---
 
@@ -11,7 +15,7 @@ Replace `YOUR_GITHUB_USER` and `YOUR_APP_SLUG` with your values.
 From the repo root (`streamlit-drawable-konva`):
 
 ```bash
-# optional: rebuild frontend before the first commit
+# rebuild frontend before release commits
 cd streamlit_drawable_konva/frontend
 npm install
 npm run build
@@ -19,7 +23,7 @@ cd ../..
 
 git add .
 git status   # confirm streamlit_drawable_konva/frontend/build/index.js is included
-git commit -m "Initial release: Streamlit Drawable Konva (Components v2)"
+git commit -m "Release 0.2.0: viewport zoom/pan/tilt and migration guide"
 ```
 
 Create an empty repo on GitHub named `streamlit-drawable-konva` (no README/license — this tree already has them), then:
@@ -28,6 +32,13 @@ Create an empty repo on GitHub named `streamlit-drawable-konva` (no README/licen
 git branch -M main
 git remote add origin https://github.com/YOUR_GITHUB_USER/streamlit-drawable-konva.git
 git push -u origin main
+```
+
+Optional tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 Update these files after you know the final URLs:
@@ -70,12 +81,12 @@ uv publish --publish-url https://test.pypi.org/legacy/
 
 Verify: https://pypi.org/project/streamlit-drawable-konva/
 
-Bump `version` in both:
+Bump `version` in both before each new upload (PyPI versions are immutable):
 
 - root [`pyproject.toml`](pyproject.toml)
 - [`streamlit_drawable_konva/pyproject.toml`](streamlit_drawable_konva/pyproject.toml)
 
-…before each new release.
+Also keep [`streamlit_drawable_konva/frontend/package.json`](streamlit_drawable_konva/frontend/package.json) in sync for clarity.
 
 ---
 
@@ -110,10 +121,10 @@ streamlit>=1.51
 numpy
 pillow
 pandas
-streamlit-drawable-konva>=0.1.0
+streamlit-drawable-konva>=0.2.0
 ```
 
-Keeping `.` is fine and always matches the demo branch.
+Keeping `.` is fine and always matches the demo branch (recommended while iterating).
 
 ---
 
@@ -123,7 +134,7 @@ Gallery submissions are a PR to the open registry:
 
 https://github.com/streamlit/gallery/tree/main/components/registry
 
-### Steps
+### First-time listing
 
 1. Publish to PyPI and deploy the `.streamlit.app` demo first (gallery wants real links).
 2. Fork https://github.com/streamlit/gallery
@@ -142,7 +153,77 @@ Suggested categories (already in the template): `Images & video`, `Widgets`.
 
 ---
 
+## Updating an existing release (e.g. 0.1.0 → 0.2.0)
+
+Use this whenever you ship a new version after the project is already on GitHub / PyPI / Cloud / gallery.
+
+### A. Bump version locally
+
+1. Set the new version in:
+   - [`pyproject.toml`](pyproject.toml)
+   - [`streamlit_drawable_konva/pyproject.toml`](streamlit_drawable_konva/pyproject.toml)
+   - [`streamlit_drawable_konva/frontend/package.json`](streamlit_drawable_konva/frontend/package.json)
+2. Rebuild frontend (required if JS/TS changed):
+
+```bash
+cd streamlit_drawable_konva/frontend
+npm install
+npm run build
+cd ../..
+```
+
+3. Commit and push to GitHub:
+
+```bash
+git add .
+git commit -m "Release 0.2.0: <short summary of changes>"
+git push origin main
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+### B. Publish the new version to PyPI
+
+PyPI **never** overwrites a version. Always bump first, then:
+
+```bash
+uv build
+uv publish
+```
+
+Check https://pypi.org/project/streamlit-drawable-konva/ shows **0.2.0**.
+
+Users upgrade with:
+
+```bash
+pip install -U streamlit-drawable-konva
+# or
+uv add streamlit-drawable-konva==0.2.0
+```
+
+### C. Refresh the Streamlit `.app` demo
+
+- If `requirements.txt` uses `.` (this repo): Community Cloud usually **auto-redeploys** after you push `main`. If not, open the app in the Cloud dashboard → **Reboot** / **Redeploy**.
+- If `requirements.txt` pins PyPI (`streamlit-drawable-konva>=0.2.0`): bump the pin if needed, push, then reboot the app so it picks up the new wheel.
+
+### D. Update the Streamlit Components gallery entry
+
+You usually **do not** need a new gallery PR for a version bump. The gallery tracks your GitHub repo + PyPI project name; stars/downloads refresh automatically.
+
+Open a follow-up PR to `streamlit/gallery` only if something in the registry JSON changed, for example:
+
+- new `links.demo` / docs URL
+- title, categories, or install command
+- author GitHub handle
+- media image
+
+Edit `components/registry/components/streamlit-drawable-konva.json` in your fork and PR again.
+
+---
+
 ## Checklist
+
+### First release
 
 - [ ] Frontend `npm run build` artifacts committed
 - [ ] GitHub repo public and pushed
@@ -150,3 +231,12 @@ Suggested categories (already in the template): `Images & video`, `Widgets`.
 - [ ] Community Cloud app live (`*.streamlit.app`)
 - [ ] Gallery JSON filled with real GitHub / PyPI / demo URLs
 - [ ] PR opened to `streamlit/gallery`
+
+### Each update (0.x.y → next)
+
+- [ ] Version bumped in both `pyproject.toml` files (+ frontend `package.json`)
+- [ ] Frontend rebuilt and committed if UI changed
+- [ ] GitHub `main` pushed (+ optional `vX.Y.Z` tag)
+- [ ] New version uploaded with `uv publish`
+- [ ] Streamlit Cloud redeployed / rebooted
+- [ ] Gallery JSON PR only if metadata/links changed

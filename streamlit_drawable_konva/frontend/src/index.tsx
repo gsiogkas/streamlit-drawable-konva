@@ -42,6 +42,7 @@ const CanvasRoot: FrontendRenderer<CanvasStateShape, CanvasDataShape> = (
         initialDrawing={data.initialDrawing}
         displayToolbar={data.displayToolbar ?? true}
         displayRadius={data.displayRadius ?? 3}
+        enableViewportControls={data.enableViewportControls ?? true}
         setStateValue={setStateValue}
       />
     </StrictMode>,

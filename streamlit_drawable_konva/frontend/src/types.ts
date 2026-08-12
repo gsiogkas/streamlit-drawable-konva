@@ -5,7 +5,8 @@ export type DrawingMode =
   | "circle"
   | "point"
   | "polygon"
-  | "transform";
+  | "transform"
+  | "pan";
 
 export type CanvasObject = {
   id: string;
@@ -30,6 +31,14 @@ export type CanvasScene = {
   objects: CanvasObject[];
 };
 
+/** Stage/view transform (display only; not part of json_data). */
+export type ViewportState = {
+  scale: number;
+  x: number;
+  y: number;
+  rotation: number;
+};
+
 export type CanvasDataShape = {
   fillColor: string;
   strokeWidth: number;
@@ -43,9 +52,20 @@ export type CanvasDataShape = {
   initialDrawing: CanvasScene;
   displayToolbar: boolean;
   displayRadius: number;
+  enableViewportControls: boolean;
 };
 
 export type CanvasStateShape = {
   image_data_url: string | null;
   json_data: CanvasScene | null;
 };
+
+export function identityViewport(width: number, height: number): ViewportState {
+  // Group uses center offset; position at center keeps content at 1:1 identity.
+  return {
+    scale: 1,
+    x: width / 2,
+    y: height / 2,
+    rotation: 0,
+  };
+}

@@ -12,10 +12,26 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 
 - Freehand, line, rect, circle, point, polygon drawing
 - Transform mode (move / scale / rotate); double-click to delete
+- **Viewport zoom, pan, and tilt** (display-only; see below)
 - Background color or image
 - Realtime or on-demand updates to Streamlit
 - Undo / redo / clear toolbar
 - Returns RGBA `image_data` and scene `json_data`
+
+### Viewport: zoom / pan / tilt
+
+Enabled by default (`enable_viewport_controls=True`). These change how the
+canvas is **viewed**, not the stored object coordinates or exported
+`image_data`.
+
+| Control | How |
+| --- | --- |
+| Zoom | Mouse wheel, or toolbar **Zoom + / −** |
+| Pan | `drawing_mode="pan"` and drag; or **Alt+drag**; or **middle-mouse drag** |
+| Tilt | Toolbar **Tilt ↶ / ↷** (view rotation, ±15°) |
+| Reset | Toolbar **Reset view** |
+
+Try them in the demo page **Zoom / pan / tilt**.
 
 ## Why Konva.js (vs Fabric.js)?
 
@@ -114,10 +130,11 @@ result = st_canvas(
     update_streamlit=True,
     height=400,
     width=600,
-    drawing_mode="freedraw",  # freedraw|line|rect|circle|point|polygon|transform
+    drawing_mode="freedraw",  # freedraw|line|rect|circle|point|polygon|transform|pan
     initial_drawing=None,
     display_toolbar=True,
     point_display_radius=3,
+    enable_viewport_controls=True,
     key="canvas",
 )
 
@@ -137,6 +154,18 @@ result = st_canvas(
 - Drag / resize / rotate with the transformer
 - Double-click selected object to delete
 
+### Viewport controls
+
+- Wheel / **Zoom ±**: zoom toward cursor (wheel) or canvas center (buttons)
+- **Pan** mode / Alt-drag / middle-mouse: move the view
+- **Tilt ↶↷**: rotate the view
+- **Reset view**: 100% zoom, 0° tilt, centered pan
+
+## Migrating from Fabric drawable canvas
+
+See [`MIGRATION.md`](MIGRATION.md) for import renames, JSON field mapping, and
+behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
+
 ## Packaging notes
 
 - Registered as `streamlit-drawable-konva.st_canvas` via the in-package
@@ -146,7 +175,10 @@ result = st_canvas(
 
 ## Publishing (GitHub / PyPI / Streamlit Cloud / gallery)
 
-Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md).
+Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
+GitHub / PyPI / Streamlit Cloud / gallery after the first release).
+
+Current version: **0.2.0**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)

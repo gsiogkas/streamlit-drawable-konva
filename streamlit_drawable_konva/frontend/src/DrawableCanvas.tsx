@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   Circle,
+  Group,
   Image as KonvaImage,
   Layer,
   Line,
@@ -21,7 +22,13 @@ import {
 import useImage from "use-image";
 
 import { cloneScene, emptyScene, newObjectId, normalizeScene } from "./scene";
-import type { CanvasDataShape, CanvasObject, CanvasScene } from "./types";
+import type {
+  CanvasDataShape,
+  CanvasObject,
+  CanvasScene,
+  ViewportState,
+} from "./types";
+import { identityViewport } from "./types";
 
 type SetStateValue = (
   name: "image_data_url" | "json_data",
@@ -40,11 +47,24 @@ type DraftShape =
   | { kind: "polygon"; points: number[] }
   | null;
 
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 8;
+const ZOOM_STEP = 1.15;
+const TILT_STEP_DEG = 15;
+
+/** Convert pointer position into content coordinates (accounts for viewport). */
 function pointerPos(stage: Konva.Stage | null): { x: number; y: number } | null {
   if (!stage) return null;
-  const pos = stage.getPointerPosition();
-  if (!pos) return null;
-  return { x: pos.x, y: pos.y };
+  const pointer = stage.getPointerPosition();
+  if (!pointer) return null;
+  const transform = stage.getAbsoluteTransform().copy().invert();
+  // Absolute transform includes Groups; prefer content group if present.
+  const content = stage.findOne("#viewport-content") as Konva.Group | null;
+  if (content) {
+    const inv = content.getAbsoluteTransform().copy().invert();
+    return inv.point(pointer);
+  }
+  return transform.point(pointer);
 }
 
 const DrawableCanvas: FC<DrawableCanvasProps> = ({
@@ -60,15 +80,20 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   initialDrawing,
   displayToolbar,
   displayRadius,
+  enableViewportControls,
   setStateValue,
 }): ReactElement => {
   const stageRef = useRef<Konva.Stage | null>(null);
   const drawLayerRef = useRef<Konva.Layer | null>(null);
+  const contentGroupRef = useRef<Konva.Group | null>(null);
+  const bgGroupRef = useRef<Konva.Group | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
   const selectedRef = useRef<Konva.Node | null>(null);
   const lastBgRef = useRef<string>(
     `${backgroundColor}|${backgroundImageURL ?? ""}`,
   );
+  const isPanningRef = useRef(false);
+  const panLastRef = useRef<{ x: number; y: number } | null>(null);
 
   const [scene, setScene] = useState<CanvasScene>(() =>
     normalizeScene(initialDrawing),
@@ -79,6 +104,9 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   const [historyIndex, setHistoryIndex] = useState(0);
   const [draft, setDraft] = useState<DraftShape>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewport, setViewport] = useState<ViewportState>(() =>
+    identityViewport(canvasWidth, canvasHeight),
+  );
   const [bgImage] = useImage(backgroundImageURL ?? "", "anonymous");
 
   const objectsKey = useMemo(
@@ -86,8 +114,10 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     [initialDrawing],
   );
 
-  // Hydrate from Python without wiping local drawings on every Streamlit rerun.
-  // Reset when background changes, or when a non-empty initial scene is provided.
+  useEffect(() => {
+    setViewport(identityViewport(canvasWidth, canvasHeight));
+  }, [canvasWidth, canvasHeight]);
+
   useEffect(() => {
     const next = normalizeScene(initialDrawing);
     const bgKey = `${backgroundColor}|${backgroundImageURL ?? ""}`;
@@ -112,9 +142,17 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       setHistoryIndex(0);
       setSelectedId(null);
       setDraft(null);
+      setViewport(identityViewport(canvasWidth, canvasHeight));
       return replaced;
     });
-  }, [objectsKey, backgroundColor, backgroundImageURL, initialDrawing]);
+  }, [
+    objectsKey,
+    backgroundColor,
+    backgroundImageURL,
+    initialDrawing,
+    canvasWidth,
+    canvasHeight,
+  ]);
 
   useEffect(() => {
     const tr = transformerRef.current;
@@ -134,29 +172,57 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     }
   }, [selectedId, drawingMode, scene.objects]);
 
-  const pushHistory = useCallback((next: CanvasScene) => {
-    setHistory((prev) => {
-      const trimmed = prev.slice(0, historyIndex + 1);
-      return [...trimmed, cloneScene(next)];
-    });
-    setHistoryIndex((i) => i + 1);
-  }, [historyIndex]);
+  const pushHistory = useCallback(
+    (next: CanvasScene) => {
+      setHistory((prev) => {
+        const trimmed = prev.slice(0, historyIndex + 1);
+        return [...trimmed, cloneScene(next)];
+      });
+      setHistoryIndex((i) => i + 1);
+    },
+    [historyIndex],
+  );
 
   const emitToStreamlit = useCallback(
     (nextScene: CanvasScene) => {
       const layer = drawLayerRef.current;
-      if (!layer) return;
-      // Export drawing layer only so background images stay out of image_data.
+      const content = contentGroupRef.current;
+      if (!layer || !content) return;
+
       requestAnimationFrame(() => {
+        // Export at identity viewport so zoom/pan/tilt stay display-only.
+        const saved = {
+          x: content.x(),
+          y: content.y(),
+          scaleX: content.scaleX(),
+          scaleY: content.scaleY(),
+          rotation: content.rotation(),
+        };
+        const id = identityViewport(canvasWidth, canvasHeight);
+        content.position({ x: id.x, y: id.y });
+        content.scale({ x: id.scale, y: id.scale });
+        content.rotation(id.rotation);
+        layer.batchDraw();
+
         const dataUrl = layer.toDataURL({
           pixelRatio: 1,
           mimeType: "image/png",
+          x: 0,
+          y: 0,
+          width: canvasWidth,
+          height: canvasHeight,
         });
+
+        content.position({ x: saved.x, y: saved.y });
+        content.scale({ x: saved.scaleX, y: saved.scaleY });
+        content.rotation(saved.rotation);
+        layer.batchDraw();
+
         setStateValue("image_data_url", dataUrl);
         setStateValue("json_data", nextScene);
       });
     },
-    [setStateValue],
+    [canvasHeight, canvasWidth, setStateValue],
   );
 
   const commitScene = useCallback(
@@ -164,8 +230,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       const cloned = cloneScene(next);
       setScene(cloned);
       pushHistory(cloned);
-      const shouldEmit =
-        options?.emit ?? realtimeUpdateStreamlit;
+      const shouldEmit = options?.emit ?? realtimeUpdateStreamlit;
       if (shouldEmit) {
         emitToStreamlit(cloned);
       }
@@ -204,6 +269,53 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     emitToStreamlit(scene);
   }, [emitToStreamlit, scene]);
 
+  const resetViewport = useCallback(() => {
+    setViewport(identityViewport(canvasWidth, canvasHeight));
+  }, [canvasHeight, canvasWidth]);
+
+  const zoomBy = useCallback(
+    (factor: number, anchor?: { x: number; y: number }) => {
+      setViewport((prev) => {
+        const newScale = Math.min(
+          MAX_SCALE,
+          Math.max(MIN_SCALE, prev.scale * factor),
+        );
+        if (!anchor) {
+          return { ...prev, scale: newScale };
+        }
+        // Zoom toward pointer (stage coords): keep the content point under the cursor fixed.
+        const content = contentGroupRef.current;
+        if (!content) {
+          return { ...prev, scale: newScale };
+        }
+        const inv = content.getAbsoluteTransform().copy().invert();
+        const point = inv.point(anchor);
+        const ox = canvasWidth / 2;
+        const oy = canvasHeight / 2;
+        // After scale change around group offset (ox, oy):
+        // screen = groupPos + R*S*(local - offset)
+        // Solve for new groupPos so the same local maps to same screen.
+        const cos = Math.cos((prev.rotation * Math.PI) / 180);
+        const sin = Math.sin((prev.rotation * Math.PI) / 180);
+        const dx = point.x - ox;
+        const dy = point.y - oy;
+        const screenX = prev.x + prev.scale * (cos * dx - sin * dy);
+        const screenY = prev.y + prev.scale * (sin * dx + cos * dy);
+        const newX = screenX - newScale * (cos * dx - sin * dy);
+        const newY = screenY - newScale * (sin * dx + cos * dy);
+        return { ...prev, scale: newScale, x: newX, y: newY };
+      });
+    },
+    [canvasHeight, canvasWidth],
+  );
+
+  const tiltBy = useCallback((degrees: number) => {
+    setViewport((prev) => ({
+      ...prev,
+      rotation: prev.rotation + degrees,
+    }));
+  }, []);
+
   const addObject = useCallback(
     (obj: CanvasObject) => {
       commitScene({
@@ -215,19 +327,49 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     [backgroundColor, commitScene, scene],
   );
 
+  const onWheel = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      if (!enableViewportControls) return;
+      e.evt.preventDefault();
+      const stage = stageRef.current;
+      if (!stage) return;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      const direction = e.evt.deltaY > 0 ? 1 / ZOOM_STEP : ZOOM_STEP;
+      zoomBy(direction, pointer);
+    },
+    [enableViewportControls, zoomBy],
+  );
+
   const onMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       const stage = stageRef.current;
+      const wantPan =
+        enableViewportControls &&
+        (drawingMode === "pan" ||
+          e.evt.button === 1 ||
+          e.evt.altKey ||
+          e.evt.buttons === 4);
+
+      if (wantPan) {
+        isPanningRef.current = true;
+        panLastRef.current = { x: e.evt.clientX, y: e.evt.clientY };
+        return;
+      }
+
       const pos = pointerPos(stage);
       if (!pos) return;
 
       if (drawingMode === "transform") {
-        const clickedOnEmpty = e.target === stage;
+        const clickedOnEmpty =
+          e.target === stage || e.target.id() === "viewport-content";
         if (clickedOnEmpty) {
           setSelectedId(null);
         }
         return;
       }
+
+      if (drawingMode === "pan") return;
 
       if (drawingMode === "point") {
         addObject({
@@ -272,35 +414,56 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         setDraft({ kind: "circle", x: pos.x, y: pos.y, radius: 0 });
       }
     },
-    [addObject, displayRadius, drawingMode, strokeColor],
+    [
+      addObject,
+      displayRadius,
+      drawingMode,
+      enableViewportControls,
+      strokeColor,
+    ],
   );
 
-  const onMouseMove = useCallback(() => {
-    const pos = pointerPos(stageRef.current);
-    if (!pos || !draft) return;
+  const onMouseMove = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (isPanningRef.current && panLastRef.current) {
+        const dx = e.evt.clientX - panLastRef.current.x;
+        const dy = e.evt.clientY - panLastRef.current.y;
+        panLastRef.current = { x: e.evt.clientX, y: e.evt.clientY };
+        setViewport((prev) => ({
+          ...prev,
+          x: prev.x + dx,
+          y: prev.y + dy,
+        }));
+        return;
+      }
 
-    if (draft.kind === "freedraw") {
-      setDraft({ kind: "freedraw", points: [...draft.points, pos.x, pos.y] });
-      return;
-    }
-    if (draft.kind === "line") {
-      setDraft({ ...draft, x2: pos.x, y2: pos.y });
-      return;
-    }
-    if (draft.kind === "rect") {
-      setDraft({
-        ...draft,
-        width: pos.x - draft.x,
-        height: pos.y - draft.y,
-      });
-      return;
-    }
-    if (draft.kind === "circle") {
-      const dx = pos.x - draft.x;
-      const dy = pos.y - draft.y;
-      setDraft({ ...draft, radius: Math.sqrt(dx * dx + dy * dy) });
-    }
-  }, [draft]);
+      const pos = pointerPos(stageRef.current);
+      if (!pos || !draft) return;
+
+      if (draft.kind === "freedraw") {
+        setDraft({ kind: "freedraw", points: [...draft.points, pos.x, pos.y] });
+        return;
+      }
+      if (draft.kind === "line") {
+        setDraft({ ...draft, x2: pos.x, y2: pos.y });
+        return;
+      }
+      if (draft.kind === "rect") {
+        setDraft({
+          ...draft,
+          width: pos.x - draft.x,
+          height: pos.y - draft.y,
+        });
+        return;
+      }
+      if (draft.kind === "circle") {
+        const dx = pos.x - draft.x;
+        const dy = pos.y - draft.y;
+        setDraft({ ...draft, radius: Math.sqrt(dx * dx + dy * dy) });
+      }
+    },
+    [draft],
+  );
 
   const finishDraft = useCallback(() => {
     if (!draft) return;
@@ -359,7 +522,18 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   }, [addObject, draft, fillColor, strokeColor, strokeWidth]);
 
   const onMouseUp = useCallback(() => {
-    if (drawingMode === "polygon" || drawingMode === "transform") return;
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
+      panLastRef.current = null;
+      return;
+    }
+    if (
+      drawingMode === "polygon" ||
+      drawingMode === "transform" ||
+      drawingMode === "pan"
+    ) {
+      return;
+    }
     finishDraft();
   }, [drawingMode, finishDraft]);
 
@@ -444,7 +618,6 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
             : {}),
         };
       });
-      // Reset node scale after baking into geometry for rect/circle.
       if (node.getClassName() === "Rect" || node.getClassName() === "Circle") {
         node.scaleX(1);
         node.scaleY(1);
@@ -468,14 +641,32 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     background: backgroundColor || "transparent",
     border: "1px solid var(--st-gray-color, #ddd)",
     display: "block",
+    cursor:
+      drawingMode === "pan" || isPanningRef.current ? "grab" : "crosshair",
   };
 
+  const viewportProps = {
+    id: "viewport-content",
+    x: viewport.x,
+    y: viewport.y,
+    scaleX: viewport.scale,
+    scaleY: viewport.scale,
+    rotation: viewport.rotation,
+    offsetX: canvasWidth / 2,
+    offsetY: canvasHeight / 2,
+  };
+
+  const zoomPct = Math.round(viewport.scale * 100);
+
   return (
-    <div style={{ fontFamily: "var(--st-font, sans-serif)", width: canvasWidth }}>
+    <div
+      style={{ fontFamily: "var(--st-font, sans-serif)", width: canvasWidth }}
+    >
       {displayToolbar && (
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: 8,
             marginBottom: 8,
             alignItems: "center",
@@ -499,6 +690,28 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
               Send to Streamlit
             </button>
           )}
+          {enableViewportControls && (
+            <>
+              <button type="button" onClick={() => zoomBy(ZOOM_STEP)}>
+                Zoom +
+              </button>
+              <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP)}>
+                Zoom −
+              </button>
+              <button type="button" onClick={() => tiltBy(-TILT_STEP_DEG)}>
+                Tilt ↶
+              </button>
+              <button type="button" onClick={() => tiltBy(TILT_STEP_DEG)}>
+                Tilt ↷
+              </button>
+              <button type="button" onClick={resetViewport}>
+                Reset view
+              </button>
+              <span style={{ fontSize: 12, opacity: 0.75 }}>
+                {zoomPct}% · {Math.round(viewport.rotation)}°
+              </span>
+            </>
+          )}
           <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.7 }}>
             mode: {drawingMode}
           </span>
@@ -513,107 +726,113 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         onMouseDown={onMouseDown}
         onMousemove={onMouseMove}
         onMouseup={onMouseUp}
+        onMouseLeave={onMouseUp}
         onContextMenu={onContextMenu}
         onDblClick={onDblClick}
+        onWheel={onWheel}
       >
         <Layer listening={false}>
-          {bgImage && (
-            <KonvaImage
-              image={bgImage}
-              width={canvasWidth}
-              height={canvasHeight}
-              listening={false}
-            />
-          )}
+          <Group ref={bgGroupRef} {...viewportProps} id="viewport-bg">
+            {bgImage && (
+              <KonvaImage
+                image={bgImage}
+                width={canvasWidth}
+                height={canvasHeight}
+                listening={false}
+              />
+            )}
+          </Group>
         </Layer>
 
         <Layer ref={drawLayerRef}>
-          {!bgImage && !!backgroundColor && (
-            <Rect
-              x={0}
-              y={0}
-              width={canvasWidth}
-              height={canvasHeight}
-              fill={backgroundColor}
-              listening={false}
-            />
-          )}
-          {scene.objects.map((obj) => (
-            <SceneObject
-              key={obj.id}
-              obj={obj}
-              draggable={drawingMode === "transform"}
-              onSelect={() => onObjectClick(obj.id)}
-              onDragEnd={(node) => onDragEnd(obj.id, node)}
-              onTransformEnd={(node) => onTransformEnd(obj.id, node)}
-            />
-          ))}
+          <Group ref={contentGroupRef} {...viewportProps}>
+            {!bgImage && !!backgroundColor && (
+              <Rect
+                x={0}
+                y={0}
+                width={canvasWidth}
+                height={canvasHeight}
+                fill={backgroundColor}
+                listening={false}
+              />
+            )}
+            {scene.objects.map((obj) => (
+              <SceneObject
+                key={obj.id}
+                obj={obj}
+                draggable={drawingMode === "transform"}
+                onSelect={() => onObjectClick(obj.id)}
+                onDragEnd={(node) => onDragEnd(obj.id, node)}
+                onTransformEnd={(node) => onTransformEnd(obj.id, node)}
+              />
+            ))}
 
-          {draft?.kind === "freedraw" && (
-            <Line
-              points={draft.points}
-              stroke={strokeColor}
-              strokeWidth={strokeWidth}
-              tension={0.5}
-              lineCap="round"
-              lineJoin="round"
-              listening={false}
-            />
-          )}
-          {draft?.kind === "line" && (
-            <Line
-              points={[draft.x1, draft.y1, draft.x2, draft.y2]}
-              stroke={strokeColor}
-              strokeWidth={strokeWidth}
-              listening={false}
-            />
-          )}
-          {draft?.kind === "rect" && (
-            <Rect
-              x={Math.min(draft.x, draft.x + draft.width)}
-              y={Math.min(draft.y, draft.y + draft.height)}
-              width={Math.abs(draft.width)}
-              height={Math.abs(draft.height)}
-              stroke={strokeColor}
-              strokeWidth={strokeWidth}
-              fill={fillColor}
-              listening={false}
-            />
-          )}
-          {draft?.kind === "circle" && (
-            <Circle
-              x={draft.x}
-              y={draft.y}
-              radius={draft.radius}
-              stroke={strokeColor}
-              strokeWidth={strokeWidth}
-              fill={fillColor}
-              listening={false}
-            />
-          )}
-          {draft?.kind === "polygon" && draft.points.length >= 2 && (
-            <Line
-              points={draft.points}
-              stroke={strokeColor}
-              strokeWidth={strokeWidth}
-              fill={fillColor}
-              closed={false}
-              listening={false}
-            />
-          )}
+            {draft?.kind === "freedraw" && (
+              <Line
+                points={draft.points}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                tension={0.5}
+                lineCap="round"
+                lineJoin="round"
+                listening={false}
+              />
+            )}
+            {draft?.kind === "line" && (
+              <Line
+                points={[draft.x1, draft.y1, draft.x2, draft.y2]}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                listening={false}
+              />
+            )}
+            {draft?.kind === "rect" && (
+              <Rect
+                x={Math.min(draft.x, draft.x + draft.width)}
+                y={Math.min(draft.y, draft.y + draft.height)}
+                width={Math.abs(draft.width)}
+                height={Math.abs(draft.height)}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                fill={fillColor}
+                listening={false}
+              />
+            )}
+            {draft?.kind === "circle" && (
+              <Circle
+                x={draft.x}
+                y={draft.y}
+                radius={draft.radius}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                fill={fillColor}
+                listening={false}
+              />
+            )}
+            {draft?.kind === "polygon" && draft.points.length >= 2 && (
+              <Line
+                points={draft.points}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                fill={fillColor}
+                closed={false}
+                listening={false}
+              />
+            )}
 
-          {drawingMode === "transform" && (
-            <Transformer
-              ref={transformerRef}
-              rotateEnabled
-              enabledAnchors={[
-                "top-left",
-                "top-right",
-                "bottom-left",
-                "bottom-right",
-              ]}
-            />
-          )}
+            {drawingMode === "transform" && (
+              <Transformer
+                ref={transformerRef}
+                rotateEnabled
+                enabledAnchors={[
+                  "top-left",
+                  "top-right",
+                  "bottom-left",
+                  "bottom-right",
+                ]}
+              />
+            )}
+          </Group>
         </Layer>
       </Stage>
     </div>

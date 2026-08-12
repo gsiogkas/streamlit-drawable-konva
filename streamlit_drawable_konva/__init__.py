@@ -67,6 +67,7 @@ def st_canvas(
     initial_drawing: Optional[dict] = None,
     display_toolbar: bool = True,
     point_display_radius: int = 3,
+    enable_viewport_controls: bool = True,
     key: Optional[str] = None,
 ) -> CanvasResult:
     """Create a Konva drawing canvas in a Streamlit app.
@@ -96,13 +97,17 @@ def st_canvas(
         Canvas width in pixels. Defaults to ``600``.
     drawing_mode:
         One of ``freedraw``, ``transform``, ``line``, ``rect``, ``circle``,
-        ``point``, ``polygon``. Defaults to ``freedraw``.
+        ``point``, ``polygon``, ``pan``. Defaults to ``freedraw``.
     initial_drawing:
         JSON scene to load (typically a previous ``json_data``).
     display_toolbar:
-        Show undo / redo / clear toolbar.
+        Show undo / redo / clear (and viewport) toolbar.
     point_display_radius:
         Radius used when drawing points as circles.
+    enable_viewport_controls:
+        Enable zoom (wheel / buttons), pan (``pan`` mode, Alt-drag, middle
+        mouse), and tilt/view-rotation (toolbar). Viewport is display-only and
+        does not affect exported ``image_data`` / object coordinates.
     key:
         Optional Streamlit widget key.
 
@@ -125,7 +130,9 @@ def st_canvas(
     )
     scene["background"] = bg_color
 
-    toolbar_h = 40 if display_toolbar else 0
+    toolbar_h = 0
+    if display_toolbar:
+        toolbar_h = 72 if enable_viewport_controls else 40
     component_height = height + toolbar_h + 8
 
     raw = _COMPONENT(
@@ -144,6 +151,7 @@ def st_canvas(
             "initialDrawing": scene,
             "displayToolbar": display_toolbar,
             "displayRadius": point_display_radius,
+            "enableViewportControls": enable_viewport_controls,
         },
         default={"image_data_url": None, "json_data": None},
         on_image_data_url_change=_noop,

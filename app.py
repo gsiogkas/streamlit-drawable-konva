@@ -31,6 +31,7 @@ def about() -> None:
 
         * Draw freely, lines, circles, boxes, points and polygons
         * Transform (move / scale / rotate) objects
+        * Zoom, pan, and tilt the viewport (display-only)
         * Use a background color or image
         * Get image data and object JSON back to Streamlit
         * Update in realtime or on demand
@@ -54,7 +55,16 @@ def basic_example() -> None:
 
     drawing_mode = st.sidebar.selectbox(
         "Drawing tool:",
-        ("freedraw", "line", "rect", "circle", "transform", "polygon", "point"),
+        (
+            "freedraw",
+            "line",
+            "rect",
+            "circle",
+            "transform",
+            "polygon",
+            "point",
+            "pan",
+        ),
     )
     stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 3)
     point_display_radius = 3
@@ -156,9 +166,57 @@ def png_export() -> None:
         st.code(f"data:image/png;base64,{b64[:80]}...", language="text")
 
 
+def viewport_controls() -> None:
+    st.markdown(
+        """
+        ### Zoom / pan / tilt (viewport)
+
+        These controls change the **view** only. Object coordinates and exported
+        `image_data` stay in content space (1:1).
+
+        | Action | How |
+        | --- | --- |
+        | **Zoom** | Mouse wheel, or **Zoom + / −** on the toolbar |
+        | **Pan** | Set tool to **pan** and drag, or hold **Alt** and drag, or **middle-click** drag |
+        | **Tilt** | **Tilt ↶ / ↷** rotates the view (±15°) |
+        | **Reset** | **Reset view** returns to 100% / 0° |
+
+        Draw a few shapes first, then switch to **pan** and try the wheel.
+        """
+    )
+    st.sidebar.header("Viewport demo")
+    drawing_mode = st.sidebar.selectbox(
+        "Drawing tool:",
+        ("rect", "freedraw", "circle", "pan", "transform"),
+        key="viewport_mode",
+    )
+    enable_viewport = st.sidebar.checkbox("Enable viewport controls", True)
+
+    canvas_result = st_canvas(
+        fill_color="rgba(70, 130, 180, 0.35)",
+        stroke_width=3,
+        stroke_color="#1b4f72",
+        background_color="#f4f6f8",
+        update_streamlit=True,
+        height=360,
+        width=640,
+        drawing_mode=drawing_mode,
+        display_toolbar=True,
+        enable_viewport_controls=enable_viewport,
+        key="viewport_controls",
+    )
+
+    if canvas_result.json_data is not None:
+        n = len(canvas_result.json_data.get("objects", []))
+        st.caption(f"{n} object(s) in content coordinates (viewport ignored).")
+    if canvas_result.image_data is not None:
+        st.image(canvas_result.image_data, caption="Exported image_data (no zoom/pan/tilt)")
+
+
 PAGES = {
     "About": about,
     "Basic example": basic_example,
+    "Zoom / pan / tilt": viewport_controls,
     "Color-based annotation": color_annotation,
     "PNG export": png_export,
 }
