@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 
-from streamlit_drawable_konva import st_canvas
+from streamlit_drawable_konva import crop_box_from_json, st_canvas
 
 st.set_page_config(
     page_title="Streamlit Drawable Konva Demo",
@@ -30,6 +30,7 @@ def about() -> None:
         What you can do:
 
         * Draw freely, lines, circles, boxes, points and polygons
+        * Crop a single rectangular region (`rect_crop`)
         * Transform (move / scale / rotate) objects
         * Zoom, pan, and tilt the viewport (display-only)
         * Use a background color or image
@@ -59,6 +60,7 @@ def basic_example() -> None:
             "freedraw",
             "line",
             "rect",
+            "rect_crop",
             "circle",
             "transform",
             "polygon",
@@ -213,9 +215,64 @@ def viewport_controls() -> None:
         st.image(canvas_result.image_data, caption="Exported image_data (no zoom/pan/tilt)")
 
 
+def crop_example() -> None:
+    st.markdown(
+        """
+        Draw **one** crop rectangle over a background image.
+
+        * Drag a new box to replace the current crop
+        * Drag corners / edges to resize, or drag the box to move it
+        * Double-click the crop box to remove it
+        * Crop coordinates are in canvas pixels (same space as the background image)
+        """
+    )
+    bg_image = st.sidebar.file_uploader(
+        "Background image:",
+        type=["png", "jpg", "jpeg"],
+        key="crop_bg",
+    )
+    stroke_color = st.sidebar.color_picker("Crop border:", "#00ff88", key="crop_stroke")
+    stroke_width = st.sidebar.slider("Border width:", 1, 8, 2, key="crop_sw")
+
+    source = Image.open(bg_image) if bg_image else None
+    canvas_h, canvas_w = 400, 600
+
+    canvas_result = st_canvas(
+        stroke_width=stroke_width,
+        stroke_color=stroke_color,
+        background_color="#222",
+        background_image=source,
+        update_streamlit=True,
+        height=canvas_h,
+        width=canvas_w,
+        drawing_mode="rect_crop",
+        display_toolbar=True,
+        enable_viewport_controls=True,
+        key="crop_example",
+    )
+
+    box = crop_box_from_json(canvas_result.json_data)
+    if box is None:
+        st.info("Draw a crop rectangle on the canvas.")
+        return
+
+    x, y, w, h = box
+    st.write(f"Crop box: x={x}, y={y}, width={w}, height={h}")
+
+    if source is not None:
+        resized = source.convert("RGBA").resize((canvas_w, canvas_h))
+        cropped = resized.crop((x, y, x + w, y + h))
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(resized, caption="Background (resized to canvas)")
+        with col2:
+            st.image(cropped, caption="Cropped preview")
+
+
 PAGES = {
     "About": about,
     "Basic example": basic_example,
+    "Crop": crop_example,
     "Zoom / pan / tilt": viewport_controls,
     "Color-based annotation": color_annotation,
     "PNG export": png_export,

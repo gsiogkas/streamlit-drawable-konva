@@ -11,6 +11,7 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 ## Features
 
 - Freehand, line, rect, circle, point, polygon drawing
+- **Rect crop** — single crop region with dimmed overlay (`rect_crop` mode)
 - Transform mode (move / scale / rotate); double-click to delete
 - **Viewport zoom, pan, and tilt** (display-only; see below)
 - Background color or image
@@ -130,7 +131,7 @@ result = st_canvas(
     update_streamlit=True,
     height=400,
     width=600,
-    drawing_mode="freedraw",  # freedraw|line|rect|circle|point|polygon|transform|pan
+    drawing_mode="freedraw",  # freedraw|line|rect|rect_crop|circle|point|polygon|transform|pan
     initial_drawing=None,
     display_toolbar=True,
     point_display_radius=3,
@@ -141,6 +142,14 @@ result = st_canvas(
 # result.image_data -> np.ndarray | None
 # result.json_data  -> dict | None
 ```
+
+### Crop controls (`rect_crop`)
+
+- Draw one rectangle; a new draw replaces the previous crop
+- Drag the box or use handles to move / resize
+- Double-click the crop box to remove it
+- Read coordinates with `crop_box_from_json(result.json_data)` → `(x, y, width, height)`
+- Crop overlay is excluded from exported `image_data`
 
 ### Polygon controls
 
@@ -178,7 +187,7 @@ behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
 Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
 GitHub / PyPI / Streamlit Cloud / gallery after the first release).
 
-Current version: **0.2.0**.
+Current version: **0.2.2**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)

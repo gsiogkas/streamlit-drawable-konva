@@ -101,8 +101,14 @@ def st_canvas(
     width:
         Canvas width in pixels. Defaults to ``600``.
     drawing_mode:
-        One of ``freedraw``, ``transform``, ``line``, ``rect``, ``circle``,
-        ``point``, ``polygon``, ``pan``. Defaults to ``freedraw``.
+        One of ``freedraw``, ``transform``, ``line``, ``rect``, ``rect_crop``,
+        ``circle``, ``point``, ``polygon``, ``pan``. Defaults to ``freedraw``.
+
+        ``rect_crop`` draws a single crop rectangle (replacing any previous one).
+        The crop region is returned in ``json_data`` as an object with
+        ``type`` ``"crop"`` and ``x`` / ``y`` / ``width`` / ``height``.
+        Use :func:`crop_box_from_json` to read it. The crop overlay is excluded
+        from ``image_data``.
     initial_drawing:
         JSON scene to load (typically a previous ``json_data``).
     display_toolbar:
@@ -174,3 +180,24 @@ def st_canvas(
         image_data=np.asarray(_data_url_to_image(image_data_url)),
         json_data=json_data,
     )
+
+
+def crop_box_from_json(
+    json_data: Optional[dict],
+) -> Optional[tuple[int, int, int, int]]:
+    """Return ``(x, y, width, height)`` for the crop object in a scene, if any."""
+    if not json_data:
+        return None
+    for obj in json_data.get("objects", []):
+        if obj.get("type") != "crop":
+            continue
+        try:
+            return (
+                int(obj["x"]),
+                int(obj["y"]),
+                int(obj["width"]),
+                int(obj["height"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+    return None

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "streamlit-drawable-konva"
-version = "0.2.1"
+version = "0.2.2"
 description = "Streamlit drawable canvas component using Konva.js (Components v2)"
 readme = "README.md"
 license = "MIT"

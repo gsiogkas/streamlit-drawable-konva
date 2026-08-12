@@ -2,6 +2,7 @@ export type DrawingMode =
   | "freedraw"
   | "line"
   | "rect"
+  | "rect_crop"
   | "circle"
   | "point"
   | "polygon"
@@ -10,7 +11,7 @@ export type DrawingMode =
 
 export type CanvasObject = {
   id: string;
-  type: "line" | "rect" | "circle" | "point" | "polygon" | "freedraw";
+  type: "line" | "rect" | "circle" | "point" | "polygon" | "freedraw" | "crop";
   x?: number;
   y?: number;
   width?: number;

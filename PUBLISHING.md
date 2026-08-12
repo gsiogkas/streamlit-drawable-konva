@@ -6,7 +6,7 @@ For later releases, see [Updating an existing release](#updating-an-existing-rel
 
 Replace `YOUR_GITHUB_USER` and `YOUR_APP_SLUG` with your values.
 
-Current package version: **0.2.0**
+Current package version: **0.2.2**
 
 ---
 

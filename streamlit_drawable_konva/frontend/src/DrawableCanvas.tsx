@@ -51,6 +51,78 @@ const MIN_SCALE = 0.25;
 const MAX_SCALE = 8;
 const ZOOM_STEP = 1.15;
 const TILT_STEP_DEG = 15;
+const CROP_OVERLAY_FILL = "rgba(0, 0, 0, 0.45)";
+
+type CropBounds = { x: number; y: number; width: number; height: number };
+
+function normalizeRectBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): CropBounds {
+  return {
+    x: Math.min(x, x + width),
+    y: Math.min(y, y + height),
+    width: Math.abs(width),
+    height: Math.abs(height),
+  };
+}
+
+type CropOverlayProps = {
+  bounds: CropBounds;
+  canvasWidth: number;
+  canvasHeight: number;
+};
+
+const CropOverlay: FC<CropOverlayProps> = ({
+  bounds,
+  canvasWidth,
+  canvasHeight,
+}) => {
+  const { x, y, width, height } = bounds;
+  if (width < 1 || height < 1) return null;
+
+  const right = x + width;
+  const bottom = y + height;
+
+  return (
+    <>
+      <Rect
+        x={0}
+        y={0}
+        width={canvasWidth}
+        height={y}
+        fill={CROP_OVERLAY_FILL}
+        listening={false}
+      />
+      <Rect
+        x={0}
+        y={bottom}
+        width={canvasWidth}
+        height={Math.max(0, canvasHeight - bottom)}
+        fill={CROP_OVERLAY_FILL}
+        listening={false}
+      />
+      <Rect
+        x={0}
+        y={y}
+        width={x}
+        height={height}
+        fill={CROP_OVERLAY_FILL}
+        listening={false}
+      />
+      <Rect
+        x={right}
+        y={y}
+        width={Math.max(0, canvasWidth - right)}
+        height={height}
+        fill={CROP_OVERLAY_FILL}
+        listening={false}
+      />
+    </>
+  );
+};
 
 /** Convert pointer position into content coordinates (accounts for viewport). */
 function pointerPos(stage: Konva.Stage | null): { x: number; y: number } | null {
@@ -158,6 +230,19 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     const tr = transformerRef.current;
     const stage = stageRef.current;
     if (!tr || !stage) return;
+
+    const cropObj = scene.objects.find((o) => o.type === "crop");
+
+    if (drawingMode === "rect_crop" && cropObj && !draft) {
+      const node = stage.findOne(`#${cropObj.id}`);
+      if (node) {
+        selectedRef.current = node;
+        tr.nodes([node]);
+        tr.getLayer()?.batchDraw();
+      }
+      return;
+    }
+
     if (drawingMode !== "transform" || !selectedId) {
       tr.nodes([]);
       selectedRef.current = null;
@@ -170,7 +255,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       tr.nodes([node]);
       tr.getLayer()?.batchDraw();
     }
-  }, [selectedId, drawingMode, scene.objects]);
+  }, [selectedId, drawingMode, scene.objects, draft]);
 
   const pushHistory = useCallback(
     (next: CanvasScene) => {
@@ -202,6 +287,21 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         content.position({ x: id.x, y: id.y });
         content.scale({ x: id.scale, y: id.scale });
         content.rotation(id.rotation);
+        const chrome = content.findOne("#crop-chrome");
+        const hiddenNodes: Konva.Node[] = [];
+        if (chrome) {
+          hiddenNodes.push(chrome);
+          chrome.visible(false);
+        }
+        for (const obj of scene.objects) {
+          if (obj.type !== "crop") continue;
+          const node = content.findOne(`#${obj.id}`);
+          if (node) {
+            hiddenNodes.push(node);
+            node.visible(false);
+          }
+        }
+
         layer.batchDraw();
 
         const dataUrl = layer.toDataURL({
@@ -216,13 +316,16 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         content.position({ x: saved.x, y: saved.y });
         content.scale({ x: saved.scaleX, y: saved.scaleY });
         content.rotation(saved.rotation);
+        for (const node of hiddenNodes) {
+          node.visible(true);
+        }
         layer.batchDraw();
 
         setStateValue("image_data_url", dataUrl);
         setStateValue("json_data", nextScene);
       });
     },
-    [canvasHeight, canvasWidth, setStateValue],
+    [canvasHeight, canvasWidth, scene.objects, setStateValue],
   );
 
   const commitScene = useCallback(
@@ -327,6 +430,45 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     [backgroundColor, commitScene, scene],
   );
 
+  const setCropObject = useCallback(
+    (obj: CanvasObject) => {
+      const withoutCrop = scene.objects.filter((o) => o.type !== "crop");
+      commitScene({
+        ...scene,
+        background: backgroundColor,
+        objects: [...withoutCrop, { ...obj, type: "crop" }],
+      });
+      setSelectedId(obj.id);
+    },
+    [backgroundColor, commitScene, scene],
+  );
+
+  const cropObject = useMemo(
+    () => scene.objects.find((o) => o.type === "crop") ?? null,
+    [scene.objects],
+  );
+
+  const activeCropBounds = useMemo((): CropBounds | null => {
+    if (draft?.kind === "rect" && drawingMode === "rect_crop") {
+      const bounds = normalizeRectBounds(
+        draft.x,
+        draft.y,
+        draft.width,
+        draft.height,
+      );
+      return bounds.width > 0 && bounds.height > 0 ? bounds : null;
+    }
+    if (cropObject) {
+      return {
+        x: cropObject.x ?? 0,
+        y: cropObject.y ?? 0,
+        width: cropObject.width ?? 0,
+        height: cropObject.height ?? 0,
+      };
+    }
+    return null;
+  }, [cropObject, draft, drawingMode]);
+
   const onWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       if (!enableViewportControls) return;
@@ -410,6 +552,17 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         return;
       }
 
+      if (drawingMode === "rect_crop") {
+        const cropObj = scene.objects.find((o) => o.type === "crop");
+        if (cropObj && e.target.id() === cropObj.id) {
+          setSelectedId(cropObj.id);
+          return;
+        }
+        setSelectedId(null);
+        setDraft({ kind: "rect", x: pos.x, y: pos.y, width: 0, height: 0 });
+        return;
+      }
+
       if (drawingMode === "circle") {
         setDraft({ kind: "circle", x: pos.x, y: pos.y, radius: 0 });
       }
@@ -419,6 +572,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       displayRadius,
       drawingMode,
       enableViewportControls,
+      scene.objects,
       strokeColor,
     ],
   );
@@ -491,17 +645,31 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       const width = Math.abs(draft.width);
       const height = Math.abs(draft.height);
       if (width > 1 && height > 1) {
-        addObject({
-          id: newObjectId(),
-          type: "rect",
-          x,
-          y,
-          width,
-          height,
-          stroke: strokeColor,
-          strokeWidth,
-          fill: fillColor,
-        });
+        if (drawingMode === "rect_crop") {
+          setCropObject({
+            id: cropObject?.id ?? newObjectId(),
+            type: "crop",
+            x,
+            y,
+            width,
+            height,
+            stroke: strokeColor,
+            strokeWidth,
+            fill: "transparent",
+          });
+        } else {
+          addObject({
+            id: newObjectId(),
+            type: "rect",
+            x,
+            y,
+            width,
+            height,
+            stroke: strokeColor,
+            strokeWidth,
+            fill: fillColor,
+          });
+        }
       }
     } else if (draft.kind === "circle" && draft.radius > 1) {
       addObject({
@@ -519,7 +687,16 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     if (draft.kind !== "polygon") {
       setDraft(null);
     }
-  }, [addObject, draft, fillColor, strokeColor, strokeWidth]);
+  }, [
+    addObject,
+    cropObject,
+    draft,
+    drawingMode,
+    fillColor,
+    setCropObject,
+    strokeColor,
+    strokeWidth,
+  ]);
 
   const onMouseUp = useCallback(() => {
     if (isPanningRef.current) {
@@ -576,12 +753,20 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         objects: scene.objects.filter((o) => o.id !== selectedId),
       });
       setSelectedId(null);
+      return;
     }
-  }, [commitScene, draft, drawingMode, scene, selectedId]);
+    if (drawingMode === "rect_crop" && cropObject) {
+      commitScene({
+        ...scene,
+        objects: scene.objects.filter((o) => o.type !== "crop"),
+      });
+      setSelectedId(null);
+    }
+  }, [commitScene, cropObject, draft, drawingMode, scene, selectedId]);
 
   const onObjectClick = useCallback(
     (id: string) => {
-      if (drawingMode !== "transform") return;
+      if (drawingMode !== "transform" && drawingMode !== "rect_crop") return;
       setSelectedId(id);
     },
     [drawingMode],
@@ -598,7 +783,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
           rotation: node.rotation(),
           scaleX: node.scaleX(),
           scaleY: node.scaleY(),
-          ...(obj.type === "rect"
+          ...(obj.type === "rect" || obj.type === "crop"
             ? {
                 width: Math.max(1, (obj.width ?? 0) * node.scaleX()),
                 height: Math.max(1, (obj.height ?? 0) * node.scaleY()),
@@ -756,11 +941,24 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                 listening={false}
               />
             )}
+            {activeCropBounds &&
+              (drawingMode === "rect_crop" || cropObject) && (
+                <Group id="crop-chrome" listening={false}>
+                  <CropOverlay
+                    bounds={activeCropBounds}
+                    canvasWidth={canvasWidth}
+                    canvasHeight={canvasHeight}
+                  />
+                </Group>
+              )}
             {scene.objects.map((obj) => (
               <SceneObject
                 key={obj.id}
                 obj={obj}
-                draggable={drawingMode === "transform"}
+                draggable={
+                  drawingMode === "transform" ||
+                  (drawingMode === "rect_crop" && obj.type === "crop")
+                }
                 onSelect={() => onObjectClick(obj.id)}
                 onDragEnd={(node) => onDragEnd(obj.id, node)}
                 onTransformEnd={(node) => onTransformEnd(obj.id, node)}
@@ -794,7 +992,8 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                 height={Math.abs(draft.height)}
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
-                fill={fillColor}
+                fill={drawingMode === "rect_crop" ? "transparent" : fillColor}
+                dash={drawingMode === "rect_crop" ? [8, 4] : undefined}
                 listening={false}
               />
             )}
@@ -820,15 +1019,19 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
               />
             )}
 
-            {drawingMode === "transform" && (
+            {(drawingMode === "transform" || drawingMode === "rect_crop") && (
               <Transformer
                 ref={transformerRef}
-                rotateEnabled
+                rotateEnabled={drawingMode === "transform"}
                 enabledAnchors={[
                   "top-left",
                   "top-right",
                   "bottom-left",
                   "bottom-right",
+                  "middle-left",
+                  "middle-right",
+                  "top-center",
+                  "bottom-center",
                 ]}
               />
             )}
@@ -867,7 +1070,7 @@ const SceneObject: FC<SceneObjectProps> = ({
       onTransformEnd(e.target),
   };
 
-  if (obj.type === "rect") {
+  if (obj.type === "rect" || obj.type === "crop") {
     return (
       <Rect
         {...common}
@@ -878,6 +1081,7 @@ const SceneObject: FC<SceneObjectProps> = ({
         stroke={obj.stroke}
         strokeWidth={obj.strokeWidth}
         fill={obj.fill}
+        dash={obj.type === "crop" ? [8, 4] : undefined}
       />
     );
   }
