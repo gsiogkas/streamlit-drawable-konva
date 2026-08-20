@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 
-from streamlit_drawable_konva import crop_box_from_json, st_canvas
+from streamlit_drawable_konva import crop_box_from_json, objects_by_group, st_canvas
 
 st.set_page_config(
     page_title="Streamlit Drawable Konva Demo",
@@ -269,9 +269,217 @@ def crop_example() -> None:
             st.image(cropped, caption="Cropped preview")
 
 
+def locks_and_transform_options() -> None:
+    st.markdown(
+        """
+        ### Locks & transform options (0.3)
+
+        **How to verify**
+
+        1. Set tool to **transform** (sidebar).
+        2. Try dragging the **gray locked** rectangle — it must not move or select.
+        3. Drag the **orange ROI** — it should move.
+        4. Toggle **Allow scale** off — orange ROI moves/rotates but has **no corner resize** handles.
+        5. Double-click orange ROI to delete; locked gray rect must survive.
+        """
+    )
+    allow_scale = st.sidebar.checkbox("Allow scale", True, key="locks_allow_scale")
+    initial = {
+        "version": "konva-1",
+        "objects": [
+            {
+                "id": "guide",
+                "type": "rect",
+                "x": 40,
+                "y": 40,
+                "width": 520,
+                "height": 220,
+                "stroke": "#888",
+                "strokeWidth": 1,
+                "fill": "rgba(0,0,0,0)",
+                "locked": True,
+            },
+            {
+                "id": "roi",
+                "type": "rect",
+                "x": 120,
+                "y": 80,
+                "width": 160,
+                "height": 100,
+                "stroke": "#e67e22",
+                "strokeWidth": 2,
+                "fill": "rgba(230,126,34,0.25)",
+            },
+        ],
+    }
+    result = st_canvas(
+        drawing_mode="transform",
+        initial_drawing=initial,
+        transform_options={"allow_scale": allow_scale},
+        background_color="#f7f7f7",
+        height=320,
+        width=600,
+        key="locks_demo",
+    )
+    if result.json_data:
+        df = pd.json_normalize(result.json_data.get("objects", []))
+        cols = [c for c in ["id", "type", "x", "y", "width", "height", "locked"] if c in df.columns]
+        st.dataframe(df[cols])
+
+
+def groups_demo() -> None:
+    st.markdown(
+        """
+        ### Groups (0.3)
+
+        **How to verify**
+
+        1. Use **transform** mode.
+        2. Drag any **blue circle** — all three circles move together.
+        3. Drag the **green rect** — only the rect moves.
+        4. Rotate the group (rotate handle) — all three circles rotate about their center.
+        5. Press **Undo** — prior positions restore.
+        """
+    )
+    initial = {
+        "version": "konva-1",
+        "objects": [
+            {"id": "g1", "type": "group", "children": ["a", "b", "c"], "scalable": False},
+            {
+                "id": "a",
+                "type": "circle",
+                "x": 180,
+                "y": 150,
+                "radius": 28,
+                "fill": "rgba(52,152,219,0.4)",
+                "stroke": "#2980b9",
+                "strokeWidth": 2,
+                "groupId": "g1",
+            },
+            {
+                "id": "b",
+                "type": "circle",
+                "x": 260,
+                "y": 150,
+                "radius": 28,
+                "fill": "rgba(52,152,219,0.4)",
+                "stroke": "#2980b9",
+                "strokeWidth": 2,
+                "groupId": "g1",
+            },
+            {
+                "id": "c",
+                "type": "circle",
+                "x": 340,
+                "y": 150,
+                "radius": 28,
+                "fill": "rgba(52,152,219,0.4)",
+                "stroke": "#2980b9",
+                "strokeWidth": 2,
+                "groupId": "g1",
+            },
+            {
+                "id": "alone",
+                "type": "rect",
+                "x": 420,
+                "y": 120,
+                "width": 90,
+                "height": 60,
+                "fill": "rgba(46,204,113,0.3)",
+                "stroke": "#27ae60",
+                "strokeWidth": 2,
+            },
+        ],
+    }
+    result = st_canvas(
+        drawing_mode="transform",
+        initial_drawing=initial,
+        background_color="#fafafa",
+        height=320,
+        width=600,
+        key="groups_demo",
+    )
+    if result.json_data:
+        st.caption("Exported child coordinates (baked content space)")
+        objs = [o for o in result.json_data.get("objects", []) if o.get("type") != "group"]
+        df = pd.json_normalize(objs)
+        if df.empty:
+            st.info("No group members to display (you may have deleted the group).")
+        else:
+            wanted_cols = ["id", "type", "x", "y", "radius"]
+            cols = [c for c in wanted_cols if c in df.columns]
+            st.dataframe(df[cols] if cols else df)
+        st.json(objects_by_group(result.json_data))
+
+
+def axis_handles_demo() -> None:
+    st.markdown(
+        """
+        ### Axis handles (0.3)
+
+        **How to verify**
+
+        1. Use **transform** mode.
+        2. Drag the **yellow knob** along the horizontal rail.
+        3. Vertical mouse motion should be ignored (Y stays ~200).
+        4. Knob stops at rail ends (±200 px from drag start along X).
+        5. The gray rail is **locked** and cannot move.
+        """
+    )
+    initial = {
+        "version": "konva-1",
+        "objects": [
+            {
+                "id": "rail",
+                "type": "line",
+                "points": [100, 200, 500, 200],
+                "stroke": "#333",
+                "strokeWidth": 2,
+                "locked": True,
+            },
+            {
+                "id": "knob",
+                "type": "circle",
+                "x": 300,
+                "y": 200,
+                "radius": 10,
+                "fill": "#f1c40f",
+                "stroke": "#000",
+                "strokeWidth": 2,
+                "scalable": False,
+                "rotatable": False,
+                "dragConstraint": {
+                    "type": "axis",
+                    "axis": {"x": 1, "y": 0},
+                    "min": -200,
+                    "max": 200,
+                },
+            },
+        ],
+    }
+    result = st_canvas(
+        drawing_mode="transform",
+        initial_drawing=initial,
+        background_color="#fff",
+        height=280,
+        width=600,
+        key="axis_handles_demo",
+    )
+    if result.json_data:
+        knob = next(
+            (o for o in result.json_data.get("objects", []) if o.get("id") == "knob"),
+            None,
+        )
+        if knob:
+            st.write(f"Knob position: x={knob.get('x'):.1f}, y={knob.get('y'):.1f}")
+
+
 PAGES = {
     "About": about,
     "Basic example": basic_example,
+    "Locks & transform options": locks_and_transform_options,
+    "Groups": groups_demo,
+    "Axis handles": axis_handles_demo,
     "Crop": crop_example,
     "Zoom / pan / tilt": viewport_controls,
     "Color-based annotation": color_annotation,

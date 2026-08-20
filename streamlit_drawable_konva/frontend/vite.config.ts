@@ -1,6 +1,6 @@
 import react from "@vitejs/plugin-react";
 import process from "node:process";
-import { defineConfig, UserConfig } from "vite";
+import { defineConfig, UserConfig } from "vitest/config";
 
 /**
  * Vite configuration for Streamlit Custom Component v2 (React + Konva).
@@ -31,6 +31,10 @@ export default defineConfig(() => {
           inlineDynamicImports: true,
         },
       },
+    },
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts"],
     },
   } satisfies UserConfig;
 });

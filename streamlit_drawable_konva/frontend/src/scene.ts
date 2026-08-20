@@ -1,4 +1,4 @@
-import type { CanvasObject, CanvasScene } from "./types";
+import type { CanvasScene } from "./types";
 
 export function emptyScene(background = ""): CanvasScene {
   return { version: "konva-1", background, objects: [] };
@@ -19,6 +19,7 @@ export function normalizeScene(raw: CanvasScene | null | undefined): CanvasScene
   return {
     version: raw.version || "konva-1",
     background: raw.background ?? "",
-    objects: raw.objects.filter(Boolean) as CanvasObject[],
+    objects: raw.objects.filter(Boolean) as CanvasScene["objects"],
+    meta: raw.meta ? { ...raw.meta } : undefined,
   };
 }

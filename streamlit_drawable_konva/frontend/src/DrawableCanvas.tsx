@@ -22,6 +22,23 @@ import {
 import useImage from "use-image";
 
 import { cloneScene, emptyScene, newObjectId, normalizeScene } from "./scene";
+import { SceneObject } from "./SceneObject";
+import {
+  buildGroupBundles,
+  DEFAULT_SCALE_ANCHORS,
+  effectiveInteraction,
+  getGroupInteraction,
+  getUngroupedObjects,
+  groupWrapId,
+  normalizeTransformOptions,
+  parseGroupWrapId,
+  selectionTargetForObject,
+} from "./interaction";
+import {
+  bakeGroupMembersFromWrapper,
+  bakeSingleObjectFromNode,
+  computeGroupCenter,
+} from "./groupBake";
 import type {
   CanvasDataShape,
   CanvasObject,
@@ -153,6 +170,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   displayToolbar,
   displayRadius,
   enableViewportControls,
+  transformOptions,
   setStateValue,
 }): ReactElement => {
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -180,6 +198,35 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     identityViewport(canvasWidth, canvasHeight),
   );
   const [bgImage] = useImage(backgroundImageURL ?? "", "anonymous");
+
+  const resolvedTransformOptions = useMemo(
+    () => normalizeTransformOptions(transformOptions, scene),
+    [transformOptions, scene],
+  );
+
+  const groupBundles = useMemo(() => buildGroupBundles(scene), [scene.objects]);
+  const ungroupedObjects = useMemo(() => getUngroupedObjects(scene), [scene.objects]);
+
+  const selectedInteraction = useMemo(() => {
+    if (!selectedId) return null;
+    const groupId = parseGroupWrapId(selectedId);
+    if (groupId) {
+      const bundle = groupBundles.find((b) => b.groupId === groupId);
+      return bundle
+        ? getGroupInteraction(bundle, drawingMode, resolvedTransformOptions)
+        : null;
+    }
+    const obj = scene.objects.find((o) => o.id === selectedId);
+    return obj
+      ? effectiveInteraction(obj, drawingMode, resolvedTransformOptions)
+      : null;
+  }, [
+    drawingMode,
+    groupBundles,
+    resolvedTransformOptions,
+    scene.objects,
+    selectedId,
+  ]);
 
   const objectsKey = useMemo(
     () => JSON.stringify(initialDrawing?.objects ?? []),
@@ -231,31 +278,49 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     const stage = stageRef.current;
     if (!tr || !stage) return;
 
+    const configureTransformer = (node: Konva.Node, rotatable: boolean, scalable: boolean) => {
+      tr.rotateEnabled(rotatable);
+      tr.resizeEnabled(scalable);
+      tr.enabledAnchors(
+        scalable ? [...DEFAULT_SCALE_ANCHORS] : [],
+      );
+      selectedRef.current = node;
+      tr.nodes([node]);
+      tr.getLayer()?.batchDraw();
+    };
+
     const cropObj = scene.objects.find((o) => o.type === "crop");
 
     if (drawingMode === "rect_crop" && cropObj && !draft) {
       const node = stage.findOne(`#${cropObj.id}`);
       if (node) {
-        selectedRef.current = node;
-        tr.nodes([node]);
-        tr.getLayer()?.batchDraw();
+        configureTransformer(node, false, true);
       }
       return;
     }
 
-    if (drawingMode !== "transform" || !selectedId) {
+    if (drawingMode !== "transform" || !selectedId || !selectedInteraction) {
       tr.nodes([]);
       selectedRef.current = null;
       tr.getLayer()?.batchDraw();
       return;
     }
+
     const node = stage.findOne(`#${selectedId}`);
     if (node) {
-      selectedRef.current = node;
-      tr.nodes([node]);
-      tr.getLayer()?.batchDraw();
+      configureTransformer(
+        node,
+        selectedInteraction.rotatable,
+        selectedInteraction.scalable,
+      );
     }
-  }, [selectedId, drawingMode, scene.objects, draft]);
+  }, [
+    selectedId,
+    selectedInteraction,
+    drawingMode,
+    scene.objects,
+    draft,
+  ]);
 
   const pushHistory = useCallback(
     (next: CanvasScene) => {
@@ -748,10 +813,24 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       return;
     }
     if (drawingMode === "transform" && selectedId) {
-      commitScene({
-        ...scene,
-        objects: scene.objects.filter((o) => o.id !== selectedId),
-      });
+      if (!selectedInteraction?.deletable) return;
+      const groupId = parseGroupWrapId(selectedId);
+      if (groupId) {
+        const bundle = groupBundles.find((b) => b.groupId === groupId);
+        if (!bundle) return;
+        const memberIds = new Set(bundle.members.map((m) => m.id));
+        commitScene({
+          ...scene,
+          objects: scene.objects.filter(
+            (o) => o.id !== groupId && !memberIds.has(o.id),
+          ),
+        });
+      } else {
+        commitScene({
+          ...scene,
+          objects: scene.objects.filter((o) => o.id !== selectedId),
+        });
+      }
       setSelectedId(null);
       return;
     }
@@ -762,64 +841,76 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       });
       setSelectedId(null);
     }
-  }, [commitScene, cropObject, draft, drawingMode, scene, selectedId]);
+  }, [
+    commitScene,
+    cropObject,
+    draft,
+    drawingMode,
+    groupBundles,
+    scene,
+    selectedId,
+    selectedInteraction,
+  ]);
 
   const onObjectClick = useCallback(
-    (id: string) => {
+    (obj: CanvasObject) => {
       if (drawingMode !== "transform" && drawingMode !== "rect_crop") return;
-      setSelectedId(id);
+      const ix = effectiveInteraction(obj, drawingMode, resolvedTransformOptions);
+      if (!ix.selectable) return;
+      setSelectedId(selectionTargetForObject(obj, scene));
     },
-    [drawingMode],
+    [drawingMode, resolvedTransformOptions, scene],
   );
 
   const onTransformEnd = useCallback(
     (id: string, node: Konva.Node) => {
+      const groupId = parseGroupWrapId(id);
+      const content = contentGroupRef.current;
+      if (groupId && content) {
+        const bundle = groupBundles.find((b) => b.groupId === groupId);
+        if (!bundle) return;
+        const baked = bakeGroupMembersFromWrapper(
+          scene,
+          bundle,
+          node as Konva.Group,
+          content,
+        );
+        commitScene({ ...scene, objects: baked });
+        return;
+      }
+
       const updated = scene.objects.map((obj) => {
         if (obj.id !== id) return obj;
-        return {
-          ...obj,
-          x: node.x(),
-          y: node.y(),
-          rotation: node.rotation(),
-          scaleX: node.scaleX(),
-          scaleY: node.scaleY(),
-          ...(obj.type === "rect" || obj.type === "crop"
-            ? {
-                width: Math.max(1, (obj.width ?? 0) * node.scaleX()),
-                height: Math.max(1, (obj.height ?? 0) * node.scaleY()),
-                scaleX: 1,
-                scaleY: 1,
-              }
-            : {}),
-          ...(obj.type === "circle" || obj.type === "point"
-            ? {
-                radius: Math.max(
-                  1,
-                  (obj.radius ?? 1) * Math.max(node.scaleX(), node.scaleY()),
-                ),
-                scaleX: 1,
-                scaleY: 1,
-              }
-            : {}),
-        };
+        return bakeSingleObjectFromNode(obj, node);
       });
-      if (node.getClassName() === "Rect" || node.getClassName() === "Circle") {
-        node.scaleX(1);
-        node.scaleY(1);
-      }
       commitScene({ ...scene, objects: updated });
     },
-    [commitScene, scene],
+    [commitScene, groupBundles, scene],
   );
 
   const onDragEnd = useCallback(
     (id: string, node: Konva.Node) => {
+      const groupId = parseGroupWrapId(id);
+      const content = contentGroupRef.current;
+      if (groupId && content) {
+        const bundle = groupBundles.find((b) => b.groupId === groupId);
+        if (!bundle) return;
+        const baked = bakeGroupMembersFromWrapper(
+          scene,
+          bundle,
+          node as Konva.Group,
+          content,
+        );
+        commitScene({ ...scene, objects: baked });
+        return;
+      }
+
       const updated = scene.objects.map((obj) =>
         obj.id === id ? { ...obj, x: node.x(), y: node.y() } : obj,
       );
       commitScene({ ...scene, objects: updated });
     },
-    [commitScene, scene],
+    [commitScene, groupBundles, scene],
   );
 
   const stageStyle: CSSProperties = {
@@ -951,19 +1042,69 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                   />
                 </Group>
               )}
-            {scene.objects.map((obj) => (
+            {ungroupedObjects.map((obj) => (
               <SceneObject
                 key={obj.id}
                 obj={obj}
-                draggable={
-                  drawingMode === "transform" ||
-                  (drawingMode === "rect_crop" && obj.type === "crop")
-                }
-                onSelect={() => onObjectClick(obj.id)}
+                interaction={effectiveInteraction(
+                  obj,
+                  drawingMode,
+                  resolvedTransformOptions,
+                )}
+                onSelect={() => onObjectClick(obj)}
                 onDragEnd={(node) => onDragEnd(obj.id, node)}
                 onTransformEnd={(node) => onTransformEnd(obj.id, node)}
               />
             ))}
+            {groupBundles.map((bundle) => {
+              const groupIx = getGroupInteraction(
+                bundle,
+                drawingMode,
+                resolvedTransformOptions,
+              );
+              const center = computeGroupCenter(bundle.members, bundle.descriptor);
+              const wrapId = groupWrapId(bundle.groupId);
+              const childInteraction = {
+                selectable: true,
+                draggable: false,
+                scalable: false,
+                rotatable: false,
+                deletable: false,
+                listening: true,
+              };
+
+              return (
+                <Group
+                  key={bundle.groupId}
+                  id={wrapId}
+                  x={center.x}
+                  y={center.y}
+                  offsetX={center.x}
+                  offsetY={center.y}
+                  draggable={groupIx.draggable}
+                  listening={groupIx.listening || groupIx.selectable}
+                  onClick={() => {
+                    if (groupIx.selectable) setSelectedId(wrapId);
+                  }}
+                  onTap={() => {
+                    if (groupIx.selectable) setSelectedId(wrapId);
+                  }}
+                  onDragEnd={(e) => onDragEnd(wrapId, e.target)}
+                  onTransformEnd={(e) => onTransformEnd(wrapId, e.target)}
+                >
+                  {bundle.members.map((obj) => (
+                    <SceneObject
+                      key={obj.id}
+                      obj={obj}
+                      interaction={childInteraction}
+                      onSelect={() => onObjectClick(obj)}
+                      onDragEnd={() => undefined}
+                      onTransformEnd={() => undefined}
+                    />
+                  ))}
+                </Group>
+              );
+            })}
 
             {draft?.kind === "freedraw" && (
               <Line
@@ -1020,118 +1161,13 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
             )}
 
             {(drawingMode === "transform" || drawingMode === "rect_crop") && (
-              <Transformer
-                ref={transformerRef}
-                rotateEnabled={drawingMode === "transform"}
-                enabledAnchors={[
-                  "top-left",
-                  "top-right",
-                  "bottom-left",
-                  "bottom-right",
-                  "middle-left",
-                  "middle-right",
-                  "top-center",
-                  "bottom-center",
-                ]}
-              />
+              <Transformer ref={transformerRef} />
             )}
           </Group>
         </Layer>
       </Stage>
     </div>
   );
-};
-
-type SceneObjectProps = {
-  obj: CanvasObject;
-  draggable: boolean;
-  onSelect: () => void;
-  onDragEnd: (node: Konva.Node) => void;
-  onTransformEnd: (node: Konva.Node) => void;
-};
-
-const SceneObject: FC<SceneObjectProps> = ({
-  obj,
-  draggable,
-  onSelect,
-  onDragEnd,
-  onTransformEnd,
-}) => {
-  const common = {
-    id: obj.id,
-    draggable,
-    rotation: obj.rotation ?? 0,
-    scaleX: obj.scaleX ?? 1,
-    scaleY: obj.scaleY ?? 1,
-    onClick: onSelect,
-    onTap: onSelect,
-    onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => onDragEnd(e.target),
-    onTransformEnd: (e: Konva.KonvaEventObject<Event>) =>
-      onTransformEnd(e.target),
-  };
-
-  if (obj.type === "rect" || obj.type === "crop") {
-    return (
-      <Rect
-        {...common}
-        x={obj.x ?? 0}
-        y={obj.y ?? 0}
-        width={obj.width ?? 0}
-        height={obj.height ?? 0}
-        stroke={obj.stroke}
-        strokeWidth={obj.strokeWidth}
-        fill={obj.fill}
-        dash={obj.type === "crop" ? [8, 4] : undefined}
-      />
-    );
-  }
-
-  if (obj.type === "circle" || obj.type === "point") {
-    return (
-      <Circle
-        {...common}
-        x={obj.x ?? 0}
-        y={obj.y ?? 0}
-        radius={obj.radius ?? 3}
-        stroke={obj.stroke}
-        strokeWidth={obj.strokeWidth}
-        fill={obj.fill}
-      />
-    );
-  }
-
-  if (obj.type === "line" || obj.type === "freedraw") {
-    return (
-      <Line
-        {...common}
-        x={obj.x ?? 0}
-        y={obj.y ?? 0}
-        points={obj.points ?? []}
-        stroke={obj.stroke}
-        strokeWidth={obj.strokeWidth}
-        tension={obj.type === "freedraw" ? 0.5 : 0}
-        lineCap="round"
-        lineJoin="round"
-      />
-    );
-  }
-
-  if (obj.type === "polygon") {
-    return (
-      <Line
-        {...common}
-        x={obj.x ?? 0}
-        y={obj.y ?? 0}
-        points={obj.points ?? []}
-        stroke={obj.stroke}
-        strokeWidth={obj.strokeWidth}
-        fill={obj.fill}
-        closed
-      />
-    );
-  }
-
-  return null;
 };
 
 export default DrawableCanvas;

@@ -137,4 +137,17 @@ coordinates or the pixels in `image_data`. Disable with
 2. Confirm drawing modes you use still work.
 3. If you depended on Fabric JSON columns (`left`/`top`/`path`), update
    post-processing to Konva fields (`x`/`y`/`points`).
+
+## 0.3 interaction features (locks, groups, handles)
+
+Version **0.3.0** adds optional object interaction fields (backward compatible):
+
+| Field | Purpose |
+| --- | --- |
+| `locked: true` | Visible but not selectable / draggable / transformable |
+| `groupId` + `type: "group"` | Move/rotate members together in transform mode |
+| `dragConstraint` | Axis-locked drag for handle UIs |
+| `transform_options` kwarg | Global toggles e.g. `allow_scale=False` |
+
+See demo pages **Locks & transform options**, **Groups**, **Axis handles** in `app.py`.
 4. Optionally open the demo page **Zoom / pan / tilt** to try the new viewport.

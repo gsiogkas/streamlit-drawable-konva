@@ -12,6 +12,8 @@ import numpy as np
 import streamlit as st
 from PIL import Image
 
+from streamlit_drawable_konva.payload import build_component_data
+
 
 @lru_cache(maxsize=1)
 def _get_component() -> Callable[..., Any]:
@@ -73,6 +75,7 @@ def st_canvas(
     display_toolbar: bool = True,
     point_display_radius: int = 3,
     enable_viewport_controls: bool = True,
+    transform_options: Optional[dict] = None,
     key: Optional[str] = None,
 ) -> CanvasResult:
     """Create a Konva drawing canvas in a Streamlit app.
@@ -110,7 +113,16 @@ def st_canvas(
         Use :func:`crop_box_from_json` to read it. The crop overlay is excluded
         from ``image_data``.
     initial_drawing:
-        JSON scene to load (typically a previous ``json_data``).
+        JSON scene to load (typically a previous ``json_data``). Objects may
+        include optional interaction fields: ``locked``, ``draggable``,
+        ``selectable``, ``scalable``, ``rotatable``, ``deletable``,
+        ``groupId``, ``type: "group"`` with ``children``, and ``dragConstraint``.
+    transform_options:
+        Optional dict controlling transform-mode behavior. Keys:
+        ``allow_select``, ``allow_drag``, ``allow_rotate``, ``allow_scale``,
+        ``allow_delete``, ``respect_object_locks`` (all default ``True``).
+        Set ``allow_scale=False`` to disable resize anchors while keeping
+        move/rotate.
     display_toolbar:
         Show undo / redo / clear (and viewport) toolbar.
     point_display_radius:
@@ -148,22 +160,22 @@ def st_canvas(
 
     raw = _get_component()(
         key=key,
-        data={
-            "fillColor": fill_color,
-            "strokeWidth": stroke_width,
-            "strokeColor": stroke_color,
-            "backgroundColor": bg_color,
-            "backgroundImageURL": background_image_url,
-            "realtimeUpdateStreamlit": update_streamlit
-            and (drawing_mode != "polygon"),
-            "canvasHeight": height,
-            "canvasWidth": width,
-            "drawingMode": drawing_mode,
-            "initialDrawing": scene,
-            "displayToolbar": display_toolbar,
-            "displayRadius": point_display_radius,
-            "enableViewportControls": enable_viewport_controls,
-        },
+        data=build_component_data(
+            fill_color=fill_color,
+            stroke_width=stroke_width,
+            stroke_color=stroke_color,
+            background_color=bg_color,
+            background_image_url=background_image_url,
+            update_streamlit=update_streamlit,
+            height=height,
+            width=width,
+            drawing_mode=drawing_mode,
+            initial_drawing=scene,
+            display_toolbar=display_toolbar,
+            point_display_radius=point_display_radius,
+            enable_viewport_controls=enable_viewport_controls,
+            transform_options=transform_options,
+        ),
         default={"image_data_url": None, "json_data": None},
         on_image_data_url_change=_noop,
         on_json_data_change=_noop,
@@ -201,3 +213,30 @@ def crop_box_from_json(
         except (KeyError, TypeError, ValueError):
             return None
     return None
+
+
+def objects_by_group(json_data: Optional[dict]) -> dict[str, list[str]]:
+    """Map group ids (or ungrouped object ids) to member object ids."""
+    if not json_data:
+        return {}
+
+    children_by_group: dict[str, list[str]] = {}
+    for obj in json_data.get("objects", []):
+        if obj.get("type") == "group":
+            children_by_group[obj["id"]] = list(obj.get("children") or [])
+
+    result: dict[str, list[str]] = {}
+    for obj in json_data.get("objects", []):
+        if obj.get("type") == "group":
+            continue
+        gid = obj.get("groupId")
+        if gid:
+            result.setdefault(gid, []).append(obj["id"])
+        else:
+            result.setdefault(obj["id"], []).append(obj["id"])
+
+    for gid, children in children_by_group.items():
+        if gid not in result:
+            result[gid] = list(children)
+
+    return result

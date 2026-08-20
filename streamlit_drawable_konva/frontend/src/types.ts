@@ -9,9 +9,24 @@ export type DrawingMode =
   | "transform"
   | "pan";
 
+export type DragConstraint = {
+  type: "axis" | "none";
+  axis?: { x: number; y: number };
+  min?: number;
+  max?: number;
+};
+
 export type CanvasObject = {
   id: string;
-  type: "line" | "rect" | "circle" | "point" | "polygon" | "freedraw" | "crop";
+  type:
+    | "line"
+    | "rect"
+    | "circle"
+    | "point"
+    | "polygon"
+    | "freedraw"
+    | "crop"
+    | "group";
   x?: number;
   y?: number;
   width?: number;
@@ -24,12 +39,41 @@ export type CanvasObject = {
   rotation?: number;
   scaleX?: number;
   scaleY?: number;
+  locked?: boolean;
+  draggable?: boolean;
+  selectable?: boolean;
+  listening?: boolean;
+  scalable?: boolean;
+  rotatable?: boolean;
+  deletable?: boolean;
+  groupId?: string;
+  children?: string[];
+  originX?: number;
+  originY?: number;
+  dragConstraint?: DragConstraint;
+};
+
+export type SceneMeta = {
+  lastChange?: {
+    type: "drag" | "transform" | "add" | "delete" | "clear";
+    ids: string[];
+  };
 };
 
 export type CanvasScene = {
   version: string;
   background?: string;
   objects: CanvasObject[];
+  meta?: SceneMeta;
+};
+
+export type TransformOptions = {
+  allow_select?: boolean;
+  allow_drag?: boolean;
+  allow_rotate?: boolean;
+  allow_scale?: boolean;
+  allow_delete?: boolean;
+  respect_object_locks?: boolean;
 };
 
 /** Stage/view transform (display only; not part of json_data). */
@@ -54,6 +98,7 @@ export type CanvasDataShape = {
   displayToolbar: boolean;
   displayRadius: number;
   enableViewportControls: boolean;
+  transformOptions: TransformOptions;
 };
 
 export type CanvasStateShape = {
@@ -62,7 +107,6 @@ export type CanvasStateShape = {
 };
 
 export function identityViewport(width: number, height: number): ViewportState {
-  // Group uses center offset; position at center keeps content at 1:1 identity.
   return {
     scale: 1,
     x: width / 2,

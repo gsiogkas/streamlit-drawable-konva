@@ -12,6 +12,7 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 
 - Freehand, line, rect, circle, point, polygon drawing
 - **Rect crop** — single crop region with dimmed overlay (`rect_crop` mode)
+- **Interaction locks & groups (0.3)** — per-object `locked`, `groupId`, axis `dragConstraint`, `transform_options`
 - Transform mode (move / scale / rotate); double-click to delete
 - **Viewport zoom, pan, and tilt** (display-only; see below)
 - Background color or image
@@ -151,6 +152,21 @@ result = st_canvas(
 - Read coordinates with `crop_box_from_json(result.json_data)` → `(x, y, width, height)`
 - Crop overlay is excluded from exported `image_data`
 
+### Interaction locks, groups, handles (0.3)
+
+Object fields (in `initial_drawing` / `json_data`):
+
+- `locked: true` — visible, not interactive in transform mode
+- `groupId` + optional `type: "group"` descriptor — move/rotate together
+- `dragConstraint: { type: "axis", axis: {x, y}, min, max }` — constrained handle drag
+- Per-object: `draggable`, `selectable`, `scalable`, `rotatable`, `deletable`
+
+Python kwarg:
+
+```python
+st_canvas(..., transform_options={"allow_scale": False})
+```
+
 ### Polygon controls
 
 - Left-click: add point
@@ -187,7 +203,7 @@ behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
 Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
 GitHub / PyPI / Streamlit Cloud / gallery after the first release).
 
-Current version: **0.2.2**.
+Current version: **0.3.0**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)
