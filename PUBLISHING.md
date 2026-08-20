@@ -6,7 +6,7 @@ For later releases, see [Updating an existing release](#updating-an-existing-rel
 
 Live demo: https://drawable-konva-demo.streamlit.app
 
-Current package version: **0.3.0**
+Current package version: **0.3.1**
 
 ---
 

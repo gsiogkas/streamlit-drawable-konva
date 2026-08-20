@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   effectiveInteraction,
+  isTransformerTarget,
   normalizeTransformOptions,
   projectAxisDrag,
   sceneHasInteractionFields,
 } from "./interaction";
 import { cloneScene, normalizeScene } from "./scene";
 import type { CanvasObject, CanvasScene } from "./types";
+import { cropObjectFill } from "./types";
 
 const emptyScene: CanvasScene = { version: "konva-1", objects: [] };
 
@@ -92,5 +94,56 @@ describe("normalizeScene", () => {
     });
     const cloned = cloneScene(scene);
     expect(cloned.objects[0].type).toBe("group");
+  });
+});
+
+describe("isTransformerTarget", () => {
+  it("detects transformer anchors", () => {
+    const transformer = {
+      getClassName: () => "Transformer",
+      getParent: () => null,
+    };
+    const anchor = {
+      getClassName: () => "Circle",
+      getParent: () => transformer,
+    };
+    expect(isTransformerTarget(transformer)).toBe(true);
+    expect(isTransformerTarget(anchor)).toBe(true);
+  });
+
+  it("ignores regular shapes", () => {
+    const rect = {
+      getClassName: () => "Rect",
+      getParent: () => null,
+    };
+    expect(isTransformerTarget(rect)).toBe(false);
+  });
+});
+
+describe("cropObjectFill", () => {
+  it("uses hit fill for transparent crops", () => {
+    expect(cropObjectFill("transparent")).toMatch(/rgba/);
+    expect(cropObjectFill(undefined)).toMatch(/rgba/);
+  });
+
+  it("preserves custom fill", () => {
+    expect(cropObjectFill("#ff0000")).toBe("#ff0000");
+  });
+});
+
+describe("rect_crop interaction", () => {
+  it("allows crop drag and select in rect_crop mode", () => {
+    const crop: CanvasObject = {
+      id: "c1",
+      type: "crop",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    };
+    const opts = normalizeTransformOptions(undefined, emptyScene);
+    const ix = effectiveInteraction(crop, "rect_crop", opts);
+    expect(ix.selectable).toBe(true);
+    expect(ix.draggable).toBe(true);
   });
 });

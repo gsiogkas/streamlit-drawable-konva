@@ -4,7 +4,7 @@ import { defineConfig, UserConfig } from "vitest/config";
 
 /**
  * Vite configuration for Streamlit Custom Component v2 (React + Konva).
- * Pinned to Vite 5 for Node 18 compatibility.
+ * Vite 6.x (Node 18+).
  */
 export default defineConfig(() => {
   const isProd = process.env.NODE_ENV === "production";

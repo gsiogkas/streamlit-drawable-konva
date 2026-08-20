@@ -363,3 +363,18 @@ export function applyGroupBake(
 ): CanvasObject[] {
   return scene.objects.map((obj) => updates.get(obj.id) ?? obj);
 }
+
+type KonvaLikeNode = {
+  getClassName(): string;
+  getParent(): KonvaLikeNode | null;
+};
+
+/** True when the event target is the transformer or one of its anchor handles. */
+export function isTransformerTarget(target: KonvaLikeNode): boolean {
+  let node: KonvaLikeNode | null = target;
+  while (node) {
+    if (node.getClassName() === "Transformer") return true;
+    node = node.getParent();
+  }
+  return false;
+}

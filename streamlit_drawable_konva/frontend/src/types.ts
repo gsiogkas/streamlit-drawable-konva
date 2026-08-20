@@ -106,6 +106,14 @@ export type CanvasStateShape = {
   json_data: CanvasScene | null;
 };
 
+/** Nearly invisible fill so crop rects receive pointer events in Konva. */
+export const CROP_HIT_FILL = "rgba(0,0,0,0.001)";
+
+export function cropObjectFill(fill?: string): string {
+  if (!fill || fill === "transparent") return CROP_HIT_FILL;
+  return fill;
+}
+
 export function identityViewport(width: number, height: number): ViewportState {
   return {
     scale: 1,

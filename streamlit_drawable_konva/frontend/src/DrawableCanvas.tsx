@@ -30,6 +30,7 @@ import {
   getGroupInteraction,
   getUngroupedObjects,
   groupWrapId,
+  isTransformerTarget,
   normalizeTransformOptions,
   parseGroupWrapId,
   selectionTargetForObject,
@@ -45,7 +46,7 @@ import type {
   CanvasScene,
   ViewportState,
 } from "./types";
-import { identityViewport } from "./types";
+import { CROP_HIT_FILL, identityViewport } from "./types";
 
 type SetStateValue = (
   name: "image_data_url" | "json_data",
@@ -618,6 +619,9 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       }
 
       if (drawingMode === "rect_crop") {
+        if (isTransformerTarget(e.target)) {
+          return;
+        }
         const cropObj = scene.objects.find((o) => o.type === "crop");
         if (cropObj && e.target.id() === cropObj.id) {
           setSelectedId(cropObj.id);
@@ -720,7 +724,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
             height,
             stroke: strokeColor,
             strokeWidth,
-            fill: "transparent",
+            fill: CROP_HIT_FILL,
           });
         } else {
           addObject({

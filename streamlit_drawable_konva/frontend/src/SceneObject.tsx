@@ -4,6 +4,7 @@ import { Circle, Line, Rect } from "react-konva";
 
 import { projectAxisDrag, type EffectiveInteraction } from "./interaction";
 import type { CanvasObject } from "./types";
+import { cropObjectFill } from "./types";
 
 type SceneObjectProps = {
   obj: CanvasObject;
@@ -67,7 +68,7 @@ export const SceneObject: FC<SceneObjectProps> = ({
         height={obj.height ?? 0}
         stroke={obj.stroke}
         strokeWidth={obj.strokeWidth}
-        fill={obj.fill}
+        fill={obj.type === "crop" ? cropObjectFill(obj.fill) : obj.fill}
         dash={obj.type === "crop" ? [8, 4] : undefined}
       />
     );
