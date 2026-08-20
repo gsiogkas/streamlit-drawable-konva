@@ -4,7 +4,7 @@ Do these in order for a **first** release: **GitHub → PyPI → Streamlit `.app
 
 For later releases, see [Updating an existing release](#updating-an-existing-release-eg-010--020) below.
 
-Replace `YOUR_GITHUB_USER` and `YOUR_APP_SLUG` with your values.
+Live demo: https://drawable-konva-demo.streamlit.app
 
 Current package version: **0.3.0**
 
@@ -106,9 +106,9 @@ This repo is already Cloud-ready:
 4. Branch: `main`
 5. Deploy.
 
-Your demo URL will look like:
+Your demo URL:
 
-`https://YOUR_APP_SLUG.streamlit.app`
+`https://drawable-konva-demo.streamlit.app`
 
 Put that URL into `gallery/streamlit-drawable-konva.json` → `links.demo`.
 

@@ -24,7 +24,7 @@ Homepage = "https://github.com/gsiogkas/streamlit-drawable-konva"
 Documentation = "https://github.com/gsiogkas/streamlit-drawable-konva#readme"
 Repository = "https://github.com/gsiogkas/streamlit-drawable-konva"
 Issues = "https://github.com/gsiogkas/streamlit-drawable-konva/issues"
-# Demo = "https://YOUR_APP_SLUG.streamlit.app"  # uncomment after Cloud deploy
+Demo = "https://drawable-konva-demo.streamlit.app"
 
 
 [project.optional-dependencies]

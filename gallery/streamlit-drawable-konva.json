@@ -8,11 +8,11 @@
   "links": {
     "github": "https://github.com/gsiogkas/streamlit-drawable-konva",
     "pypi": "streamlit-drawable-konva",
-    "demo": "https://YOUR_APP_SLUG.streamlit.app",
+    "demo": "https://drawable-konva-demo.streamlit.app",
     "docs": "https://github.com/gsiogkas/streamlit-drawable-konva#readme"
   },
   "media": {
-    "image": null
+    "image": "https://raw.githubusercontent.com/gsiogkas/streamlit-drawable-konva/main/docs/assets/usage.gif"
   },
   "install": {
     "pip": "pip install streamlit-drawable-konva"

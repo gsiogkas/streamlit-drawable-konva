@@ -2,6 +2,8 @@
 
 ![Usage demo — draw, background image, viewport, crop, locks, groups, and export](docs/assets/usage.gif)
 
+**Live demo:** [drawable-konva-demo.streamlit.app](https://drawable-konva-demo.streamlit.app)
+
 Streamlit custom component (Components **v2**) that provides a sketching canvas
 using [Konva.js](https://konvajs.org/) / `react-konva`.
 
