@@ -1,5 +1,7 @@
 # Streamlit Drawable Konva
 
+![Usage demo — draw, background image, viewport, crop, locks, groups, and export](docs/assets/usage.gif)
+
 Streamlit custom component (Components **v2**) that provides a sketching canvas
 using [Konva.js](https://konvajs.org/) / `react-konva`.
 
