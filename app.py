@@ -29,7 +29,7 @@ def about() -> None:
 
         What you can do:
 
-        * Draw freely, lines, circles, boxes, points and polygons
+        * Draw freely, lines, circles, boxes, points, polygons, and splines
         * Crop a single rectangular region (`rect_crop`)
         * Transform (move / scale / rotate) objects
         * Zoom, pan, and tilt the viewport (display-only)
@@ -51,6 +51,8 @@ def basic_example() -> None:
         * In **transform** mode, double-click an object to remove it
         * In **polygon** mode: left-click to add points, right-click to close,
           double-click to remove the latest point
+        * In **spline** mode: left-click to add control points, right-click to
+          finish the Catmull-Rom curve, double-click to remove the latest point
         """
     )
 
@@ -64,6 +66,7 @@ def basic_example() -> None:
             "circle",
             "transform",
             "polygon",
+            "spline",
             "point",
             "pan",
         ),
@@ -267,6 +270,54 @@ def crop_example() -> None:
             st.image(resized, caption="Background (resized to canvas)")
         with col2:
             st.image(cropped, caption="Cropped preview")
+
+
+def spline_example() -> None:
+    st.markdown(
+        """
+        ### Catmull-Rom spline
+
+        Click to place **control points** along a path. The curve passes through
+        every click (Konva Catmull-Rom with tension 0.5).
+
+        * **Left-click** — add a control point
+        * **Right-click** — finish the open spline (needs at least 2 points)
+        * **Double-click** — remove the last control point
+        * Switch to **transform** to move, scale, or delete finished splines
+        """
+    )
+    stroke_color = st.sidebar.color_picker("Stroke color:", "#0066cc", key="spline_stroke")
+    stroke_width = st.sidebar.slider("Stroke width:", 1, 12, 3, key="spline_sw")
+
+    canvas_result = st_canvas(
+        stroke_width=stroke_width,
+        stroke_color=stroke_color,
+        background_color="#f8f8f8",
+        update_streamlit=True,
+        height=400,
+        width=600,
+        drawing_mode="spline",
+        display_toolbar=True,
+        key="spline_example",
+    )
+
+    splines = [
+        o
+        for o in (canvas_result.json_data or {}).get("objects", [])
+        if o.get("type") == "spline"
+    ]
+    if not splines:
+        st.info("Draw a spline on the canvas (right-click to finish).")
+        return
+
+    st.write(f"**{len(splines)}** spline(s) in scene JSON:")
+    for obj in splines:
+        pts = obj.get("points") or []
+        n = len(pts) // 2
+        tension = obj.get("tension", 0.5)
+        st.write(
+            f"- `{obj.get('id')}`: {n} control points, tension={tension}"
+        )
 
 
 def locks_and_transform_options() -> None:
@@ -481,6 +532,7 @@ PAGES = {
     "Groups": groups_demo,
     "Axis handles": axis_handles_demo,
     "Crop": crop_example,
+    "Spline": spline_example,
     "Zoom / pan / tilt": viewport_controls,
     "Color-based annotation": color_annotation,
     "PNG export": png_export,

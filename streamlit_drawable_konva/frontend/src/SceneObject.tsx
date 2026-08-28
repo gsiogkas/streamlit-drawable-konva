@@ -3,6 +3,7 @@ import { FC, ReactElement, useRef } from "react";
 import { Circle, Line, Rect } from "react-konva";
 
 import { projectAxisDrag, type EffectiveInteraction } from "./interaction";
+import { lineTension } from "./spline";
 import type { CanvasObject } from "./types";
 import { cropObjectFill } from "./types";
 
@@ -88,7 +89,7 @@ export const SceneObject: FC<SceneObjectProps> = ({
     );
   }
 
-  if (obj.type === "line" || obj.type === "freedraw") {
+  if (obj.type === "line" || obj.type === "freedraw" || obj.type === "spline") {
     return (
       <Line
         {...common}
@@ -97,7 +98,7 @@ export const SceneObject: FC<SceneObjectProps> = ({
         points={obj.points ?? []}
         stroke={obj.stroke}
         strokeWidth={obj.strokeWidth}
-        tension={obj.type === "freedraw" ? 0.5 : 0}
+        tension={lineTension(obj)}
         lineCap="round"
         lineJoin="round"
       />

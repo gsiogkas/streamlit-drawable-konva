@@ -47,6 +47,10 @@ import type {
   ViewportState,
 } from "./types";
 import { CROP_HIT_FILL, identityViewport } from "./types";
+import {
+  canCommitSpline,
+  DEFAULT_SPLINE_TENSION,
+} from "./spline";
 
 type SetStateValue = (
   name: "image_data_url" | "json_data",
@@ -63,6 +67,7 @@ type DraftShape =
   | { kind: "circle"; x: number; y: number; radius: number }
   | { kind: "freedraw"; points: number[] }
   | { kind: "polygon"; points: number[] }
+  | { kind: "spline"; points: number[] }
   | null;
 
 const MIN_SCALE = 0.25;
@@ -603,6 +608,16 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
         return;
       }
 
+      if (drawingMode === "spline") {
+        setDraft((prev) => {
+          if (prev?.kind === "spline") {
+            return { kind: "spline", points: [...prev.points, pos.x, pos.y] };
+          }
+          return { kind: "spline", points: [pos.x, pos.y] };
+        });
+        return;
+      }
+
       if (drawingMode === "freedraw") {
         setDraft({ kind: "freedraw", points: [pos.x, pos.y] });
         return;
@@ -753,7 +768,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       });
     }
 
-    if (draft.kind !== "polygon") {
+    if (draft.kind !== "polygon" && draft.kind !== "spline") {
       setDraft(null);
     }
   }, [
@@ -775,6 +790,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     }
     if (
       drawingMode === "polygon" ||
+      drawingMode === "spline" ||
       drawingMode === "transform" ||
       drawingMode === "pan"
     ) {
@@ -786,20 +802,38 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   const onContextMenu = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       e.evt.preventDefault();
-      if (drawingMode !== "polygon" || draft?.kind !== "polygon") return;
-      if (draft.points.length < 6) {
+      if (drawingMode === "polygon" && draft?.kind === "polygon") {
+        if (draft.points.length < 6) {
+          setDraft(null);
+          return;
+        }
+        addObject({
+          id: newObjectId(),
+          type: "polygon",
+          points: draft.points,
+          stroke: strokeColor,
+          strokeWidth,
+          fill: fillColor,
+        });
         setDraft(null);
         return;
       }
-      addObject({
-        id: newObjectId(),
-        type: "polygon",
-        points: draft.points,
-        stroke: strokeColor,
-        strokeWidth,
-        fill: fillColor,
-      });
-      setDraft(null);
+      if (drawingMode === "spline" && draft?.kind === "spline") {
+        if (!canCommitSpline(draft.points)) {
+          setDraft(null);
+          return;
+        }
+        addObject({
+          id: newObjectId(),
+          type: "spline",
+          points: draft.points,
+          tension: DEFAULT_SPLINE_TENSION,
+          stroke: strokeColor,
+          strokeWidth,
+          fill: "",
+        });
+        setDraft(null);
+      }
     },
     [addObject, draft, drawingMode, fillColor, strokeColor, strokeWidth],
   );
@@ -811,6 +845,17 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
       } else {
         setDraft({
           kind: "polygon",
+          points: draft.points.slice(0, -2),
+        });
+      }
+      return;
+    }
+    if (drawingMode === "spline" && draft?.kind === "spline") {
+      if (draft.points.length <= 2) {
+        setDraft(null);
+      } else {
+        setDraft({
+          kind: "spline",
           points: draft.points.slice(0, -2),
         });
       }
@@ -1160,6 +1205,17 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                 strokeWidth={strokeWidth}
                 fill={fillColor}
                 closed={false}
+                listening={false}
+              />
+            )}
+            {draft?.kind === "spline" && draft.points.length >= 2 && (
+              <Line
+                points={draft.points}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                tension={DEFAULT_SPLINE_TENSION}
+                lineCap="round"
+                lineJoin="round"
                 listening={false}
               />
             )}

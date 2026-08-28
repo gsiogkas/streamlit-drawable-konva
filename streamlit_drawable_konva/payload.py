@@ -28,7 +28,8 @@ def build_component_data(
         "strokeColor": stroke_color,
         "backgroundColor": background_color,
         "backgroundImageURL": background_image_url,
-        "realtimeUpdateStreamlit": update_streamlit and (drawing_mode != "polygon"),
+        "realtimeUpdateStreamlit": update_streamlit
+        and drawing_mode not in ("polygon", "spline"),
         "canvasHeight": height,
         "canvasWidth": width,
         "drawingMode": drawing_mode,

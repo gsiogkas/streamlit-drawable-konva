@@ -6,6 +6,7 @@ export type DrawingMode =
   | "circle"
   | "point"
   | "polygon"
+  | "spline"
   | "transform"
   | "pan";
 
@@ -25,6 +26,7 @@ export type CanvasObject = {
     | "point"
     | "polygon"
     | "freedraw"
+    | "spline"
     | "crop"
     | "group";
   x?: number;
@@ -36,6 +38,8 @@ export type CanvasObject = {
   stroke?: string;
   strokeWidth?: number;
   fill?: string;
+  /** Catmull-Rom tension for ``type: "spline"`` (default 0.5). */
+  tension?: number;
   rotation?: number;
   scaleX?: number;
   scaleY?: number;

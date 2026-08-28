@@ -14,7 +14,7 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 
 ## Features
 
-- Freehand, line, rect, circle, point, polygon drawing
+- Freehand, line, rect, circle, point, polygon, **spline** (Catmull-Rom through clicks) drawing
 - **Rect crop** — single crop region with dimmed overlay (`rect_crop` mode)
 - **Interaction locks & groups (0.3)** — per-object `locked`, `groupId`, axis `dragConstraint`, `transform_options`
 - Transform mode (move / scale / rotate); double-click to delete
@@ -136,7 +136,7 @@ result = st_canvas(
     update_streamlit=True,
     height=400,
     width=600,
-    drawing_mode="freedraw",  # freedraw|line|rect|rect_crop|circle|point|polygon|transform|pan
+    drawing_mode="freedraw",  # freedraw|line|rect|rect_crop|circle|point|polygon|spline|transform|pan
     initial_drawing=None,
     display_toolbar=True,
     point_display_radius=3,
@@ -207,7 +207,7 @@ behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
 Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
 GitHub / PyPI / Streamlit Cloud / gallery after the first release).
 
-Current version: **0.3.1**.
+Current version: **0.3.2**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)

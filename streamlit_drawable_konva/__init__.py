@@ -105,7 +105,10 @@ def st_canvas(
         Canvas width in pixels. Defaults to ``600``.
     drawing_mode:
         One of ``freedraw``, ``transform``, ``line``, ``rect``, ``rect_crop``,
-        ``circle``, ``point``, ``polygon``, ``pan``. Defaults to ``freedraw``.
+        ``circle``, ``point``, ``polygon``, ``spline``, ``pan``. Defaults to ``freedraw``.
+
+        ``spline`` — click to place control points; right-click to finish the
+        open Catmull-Rom curve; double-click to remove the last point.
 
         ``rect_crop`` draws a single crop rectangle (replacing any previous one).
         The crop region is returned in ``json_data`` as an object with

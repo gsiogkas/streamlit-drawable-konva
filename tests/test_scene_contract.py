@@ -74,6 +74,45 @@ def test_locks_demo_scene_schema():
     assert "id" in initial["objects"][1]
 
 
+def test_build_component_data_spline_defers_realtime_updates():
+    data = build_component_data(
+        fill_color="#eee",
+        stroke_width=3,
+        stroke_color="#000",
+        background_color="#fff",
+        background_image_url=None,
+        update_streamlit=True,
+        height=400,
+        width=600,
+        drawing_mode="spline",
+        initial_drawing={"version": "konva-1", "objects": []},
+        display_toolbar=True,
+        point_display_radius=3,
+        enable_viewport_controls=True,
+    )
+    assert data["drawingMode"] == "spline"
+    assert data["realtimeUpdateStreamlit"] is False
+
+
+def test_build_component_data_polygon_defers_realtime_updates():
+    data = build_component_data(
+        fill_color="#eee",
+        stroke_width=3,
+        stroke_color="#000",
+        background_color="#fff",
+        background_image_url=None,
+        update_streamlit=True,
+        height=400,
+        width=600,
+        drawing_mode="polygon",
+        initial_drawing={"version": "konva-1", "objects": []},
+        display_toolbar=True,
+        point_display_radius=3,
+        enable_viewport_controls=True,
+    )
+    assert data["realtimeUpdateStreamlit"] is False
+
+
 def test_objects_by_group():
     from streamlit_drawable_konva import objects_by_group
 

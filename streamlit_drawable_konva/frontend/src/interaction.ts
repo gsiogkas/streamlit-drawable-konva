@@ -349,7 +349,7 @@ export function bakeObjectFromNode(obj: CanvasObject, absX: number, absY: number
     };
   }
 
-  if (obj.type === "line" || obj.type === "polygon" || obj.type === "freedraw") {
+  if (obj.type === "line" || obj.type === "polygon" || obj.type === "freedraw" || obj.type === "spline") {
     return bakePointBased(obj, absX, absY, rotation, scale);
   }
 
