@@ -3,13 +3,20 @@ import { FC, ReactElement, useRef } from "react";
 import { Circle, Line, Rect } from "react-konva";
 
 import { projectAxisDrag, type EffectiveInteraction } from "./interaction";
-import { lineTension } from "./spline";
+import { SplineControlMarkers } from "./SplineControlMarkers";
+import {
+  lineTension,
+  shouldShowSplineControlPoints,
+  splineControlPointsGroupId,
+} from "./spline";
 import type { CanvasObject } from "./types";
 import { cropObjectFill } from "./types";
 
 type SceneObjectProps = {
   obj: CanvasObject;
   interaction: EffectiveInteraction;
+  splineShowControlPoints: boolean;
+  splineControlPointRadius: number;
   onSelect: () => void;
   onDragEnd: (node: Konva.Node) => void;
   onTransformEnd: (node: Konva.Node) => void;
@@ -18,6 +25,8 @@ type SceneObjectProps = {
 export const SceneObject: FC<SceneObjectProps> = ({
   obj,
   interaction,
+  splineShowControlPoints,
+  splineControlPointRadius,
   onSelect,
   onDragEnd,
   onTransformEnd,
@@ -89,7 +98,36 @@ export const SceneObject: FC<SceneObjectProps> = ({
     );
   }
 
-  if (obj.type === "line" || obj.type === "freedraw" || obj.type === "spline") {
+  if (obj.type === "spline") {
+    const showMarkers = shouldShowSplineControlPoints(splineShowControlPoints, obj);
+    return (
+      <>
+        <Line
+          {...common}
+          x={obj.x ?? 0}
+          y={obj.y ?? 0}
+          points={obj.points ?? []}
+          stroke={obj.stroke}
+          strokeWidth={obj.strokeWidth}
+          tension={lineTension(obj)}
+          lineCap="round"
+          lineJoin="round"
+        />
+        {showMarkers && (
+          <SplineControlMarkers
+            points={obj.points ?? []}
+            offsetX={obj.x ?? 0}
+            offsetY={obj.y ?? 0}
+            stroke={obj.stroke ?? "#000"}
+            radius={splineControlPointRadius}
+            groupId={splineControlPointsGroupId(obj.id)}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (obj.type === "line" || obj.type === "freedraw") {
     return (
       <Line
         {...common}

@@ -23,6 +23,7 @@ import useImage from "use-image";
 
 import { cloneScene, emptyScene, newObjectId, normalizeScene } from "./scene";
 import { SceneObject } from "./SceneObject";
+import { SplineControlMarkers } from "./SplineControlMarkers";
 import {
   buildGroupBundles,
   DEFAULT_SCALE_ANCHORS,
@@ -49,7 +50,10 @@ import type {
 import { CROP_HIT_FILL, identityViewport } from "./types";
 import {
   canCommitSpline,
+  canUndoDraftPoint,
   DEFAULT_SPLINE_TENSION,
+  isPointDraft,
+  undoDraftPoint,
 } from "./spline";
 
 type SetStateValue = (
@@ -177,6 +181,8 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   displayRadius,
   enableViewportControls,
   transformOptions,
+  splineShowControlPoints,
+  splineControlPointRadius,
   setStateValue,
 }): ReactElement => {
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -372,6 +378,19 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
             node.visible(false);
           }
         }
+        for (const obj of scene.objects) {
+          if (obj.type !== "spline") continue;
+          const markers = content.findOne(`#${obj.id}__control-points`);
+          if (markers) {
+            hiddenNodes.push(markers);
+            markers.visible(false);
+          }
+        }
+        const draftMarkers = content.findOne("#draft-spline-control-points");
+        if (draftMarkers) {
+          hiddenNodes.push(draftMarkers);
+          draftMarkers.visible(false);
+        }
 
         layer.batchDraw();
 
@@ -412,7 +431,14 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     [emitToStreamlit, pushHistory, realtimeUpdateStreamlit],
   );
 
+  const undoDraftControlPoint = useCallback((): boolean => {
+    if (!isPointDraft(draft)) return false;
+    setDraft(undoDraftPoint(draft));
+    return true;
+  }, [draft]);
+
   const undo = useCallback(() => {
+    if (undoDraftControlPoint()) return;
     if (historyIndex <= 0) return;
     const nextIndex = historyIndex - 1;
     const next = cloneScene(history[nextIndex]);
@@ -420,7 +446,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     setScene(next);
     setSelectedId(null);
     if (realtimeUpdateStreamlit) emitToStreamlit(next);
-  }, [emitToStreamlit, history, historyIndex, realtimeUpdateStreamlit]);
+  }, [emitToStreamlit, history, historyIndex, realtimeUpdateStreamlit, undoDraftControlPoint]);
 
   const redo = useCallback(() => {
     if (historyIndex >= history.length - 1) return;
@@ -446,6 +472,27 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   const resetViewport = useCallback(() => {
     setViewport(identityViewport(canvasWidth, canvasHeight));
   }, [canvasHeight, canvasWidth]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      if (e.key === "Backspace" && canUndoDraftPoint(draft)) {
+        e.preventDefault();
+        if (isPointDraft(draft)) {
+          setDraft(undoDraftPoint(draft));
+        }
+        return;
+      }
+      if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [draft, undo]);
 
   const zoomBy = useCallback(
     (factor: number, anchor?: { x: number; y: number }) => {
@@ -492,11 +539,15 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
 
   const addObject = useCallback(
     (obj: CanvasObject) => {
-      commitScene({
-        ...scene,
-        background: backgroundColor,
-        objects: [...scene.objects, obj],
-      });
+      // Always push to Streamlit on commit (polygon/spline disable realtime while drafting).
+      commitScene(
+        {
+          ...scene,
+          background: backgroundColor,
+          objects: [...scene.objects, obj],
+        },
+        { emit: true },
+      );
     },
     [backgroundColor, commitScene, scene],
   );
@@ -831,11 +882,12 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
           stroke: strokeColor,
           strokeWidth,
           fill: "",
+          showControlPoints: splineShowControlPoints,
         });
         setDraft(null);
       }
     },
-    [addObject, draft, drawingMode, fillColor, strokeColor, strokeWidth],
+    [addObject, draft, drawingMode, fillColor, splineShowControlPoints, strokeColor, strokeWidth],
   );
 
   const onDblClick = useCallback(() => {
@@ -997,7 +1049,11 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
             alignItems: "center",
           }}
         >
-          <button type="button" onClick={undo} disabled={historyIndex <= 0}>
+          <button
+            type="button"
+            onClick={undo}
+            disabled={historyIndex <= 0 && !canUndoDraftPoint(draft)}
+          >
             Undo
           </button>
           <button
@@ -1100,6 +1156,8 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                   drawingMode,
                   resolvedTransformOptions,
                 )}
+                splineShowControlPoints={splineShowControlPoints}
+                splineControlPointRadius={splineControlPointRadius}
                 onSelect={() => onObjectClick(obj)}
                 onDragEnd={(node) => onDragEnd(obj.id, node)}
                 onTransformEnd={(node) => onTransformEnd(obj.id, node)}
@@ -1146,6 +1204,8 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                       key={obj.id}
                       obj={obj}
                       interaction={childInteraction}
+                      splineShowControlPoints={splineShowControlPoints}
+                      splineControlPointRadius={splineControlPointRadius}
                       onSelect={() => onObjectClick(obj)}
                       onDragEnd={() => undefined}
                       onTransformEnd={() => undefined}
@@ -1208,16 +1268,28 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
                 listening={false}
               />
             )}
-            {draft?.kind === "spline" && draft.points.length >= 2 && (
-              <Line
-                points={draft.points}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                tension={DEFAULT_SPLINE_TENSION}
-                lineCap="round"
-                lineJoin="round"
-                listening={false}
-              />
+            {draft?.kind === "spline" && (
+              <>
+                {draft.points.length >= 4 && (
+                  <Line
+                    points={draft.points}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    tension={DEFAULT_SPLINE_TENSION}
+                    lineCap="round"
+                    lineJoin="round"
+                    listening={false}
+                  />
+                )}
+                {splineShowControlPoints && draft.points.length >= 2 && (
+                  <SplineControlMarkers
+                    points={draft.points}
+                    stroke={strokeColor}
+                    radius={splineControlPointRadius}
+                    groupId="draft-spline-control-points"
+                  />
+                )}
+              </>
             )}
 
             {(drawingMode === "transform" || drawingMode === "rect_crop") && (

@@ -21,6 +21,8 @@ def build_component_data(
     point_display_radius: int,
     enable_viewport_controls: bool,
     transform_options: Optional[dict[str, Any]] = None,
+    spline_show_control_points: bool = False,
+    spline_control_point_radius: int = 5,
 ) -> dict[str, Any]:
     return {
         "fillColor": fill_color,
@@ -38,4 +40,6 @@ def build_component_data(
         "displayRadius": point_display_radius,
         "enableViewportControls": enable_viewport_controls,
         "transformOptions": transform_options or {},
+        "splineShowControlPoints": spline_show_control_points,
+        "splineControlPointRadius": spline_control_point_radius,
     }

@@ -94,6 +94,28 @@ def test_build_component_data_spline_defers_realtime_updates():
     assert data["realtimeUpdateStreamlit"] is False
 
 
+def test_build_component_data_spline_control_points():
+    data = build_component_data(
+        fill_color="#eee",
+        stroke_width=3,
+        stroke_color="#000",
+        background_color="#fff",
+        background_image_url=None,
+        update_streamlit=True,
+        height=400,
+        width=600,
+        drawing_mode="spline",
+        initial_drawing={"version": "konva-1", "objects": []},
+        display_toolbar=True,
+        point_display_radius=3,
+        enable_viewport_controls=True,
+        spline_show_control_points=True,
+        spline_control_point_radius=7,
+    )
+    assert data["splineShowControlPoints"] is True
+    assert data["splineControlPointRadius"] == 7
+
+
 def test_build_component_data_polygon_defers_realtime_updates():
     data = build_component_data(
         fill_color="#eee",
@@ -111,6 +133,34 @@ def test_build_component_data_polygon_defers_realtime_updates():
         enable_viewport_controls=True,
     )
     assert data["realtimeUpdateStreamlit"] is False
+
+
+def test_spline_control_points_and_sampling():
+    from streamlit_drawable_konva import (
+        sample_spline,
+        spline_control_points,
+        splines_from_json,
+    )
+
+    scene = {
+        "objects": [
+            {
+                "id": "s1",
+                "type": "spline",
+                "points": [0, 0, 100, 0, 100, 100],
+                "tension": 0.5,
+            }
+        ]
+    }
+    splines = splines_from_json(scene)
+    assert len(splines) == 1
+    control = spline_control_points(splines[0])
+    assert control == [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0)]
+
+    dense = sample_spline(splines[0], samples_per_segment=4)
+    assert len(dense) > len(control)
+    assert dense[0] == control[0]
+    assert dense[-1] == control[-1]
 
 
 def test_objects_by_group():

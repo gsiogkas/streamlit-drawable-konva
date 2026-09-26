@@ -7,9 +7,16 @@ from io import BytesIO
 
 import pandas as pd
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from streamlit_drawable_konva import crop_box_from_json, objects_by_group, st_canvas
+from streamlit_drawable_konva import (
+    crop_box_from_json,
+    objects_by_group,
+    sample_spline,
+    spline_control_points,
+    splines_from_json,
+    st_canvas,
+)
 
 st.set_page_config(
     page_title="Streamlit Drawable Konva Demo",
@@ -282,12 +289,32 @@ def spline_example() -> None:
 
         * **Left-click** — add a control point
         * **Right-click** — finish the open spline (needs at least 2 points)
-        * **Double-click** — remove the last control point
+        * **Undo / Backspace / double-click** — remove the last control point (repeat for several)
+        * Toggle **Show control points** to inspect click locations
         * Switch to **transform** to move, scale, or delete finished splines
+
+        #### What comes back in `json_data`?
+
+        Only the **control points you clicked** are stored — as a flat list
+        `points: [x1, y1, x2, y2, …]` on each object with `type: "spline"`.
+        The smooth curve is **not** serialized; Konva (and the helpers below)
+        interpolate Catmull-Rom segments at draw/sample time using `tension`.
         """
     )
     stroke_color = st.sidebar.color_picker("Stroke color:", "#0066cc", key="spline_stroke")
     stroke_width = st.sidebar.slider("Stroke width:", 1, 12, 3, key="spline_sw")
+    show_control_points = st.sidebar.checkbox(
+        "Show control points",
+        value=True,
+        key="spline_show_pts",
+    )
+    control_radius = st.sidebar.slider(
+        "Control point radius:",
+        2,
+        12,
+        5,
+        key="spline_pt_radius",
+    )
 
     canvas_result = st_canvas(
         stroke_width=stroke_width,
@@ -298,25 +325,86 @@ def spline_example() -> None:
         width=600,
         drawing_mode="spline",
         display_toolbar=True,
+        spline_show_control_points=show_control_points,
+        spline_control_point_radius=control_radius,
         key="spline_example",
     )
 
-    splines = [
-        o
-        for o in (canvas_result.json_data or {}).get("objects", [])
-        if o.get("type") == "spline"
-    ]
+    splines = splines_from_json(canvas_result.json_data)
     if not splines:
         st.info("Draw a spline on the canvas (right-click to finish).")
         return
 
-    st.write(f"**{len(splines)}** spline(s) in scene JSON:")
-    for obj in splines:
-        pts = obj.get("points") or []
-        n = len(pts) // 2
+    samples_per_segment = st.sidebar.slider(
+        "Samples per segment (for dense polyline)",
+        4,
+        64,
+        16,
+        key="spline_samples",
+    )
+
+    st.write(f"**{len(splines)}** spline(s) in scene JSON")
+
+    for idx, obj in enumerate(splines):
         tension = obj.get("tension", 0.5)
-        st.write(
-            f"- `{obj.get('id')}`: {n} control points, tension={tension}"
+        control = spline_control_points(obj)
+        dense = sample_spline(obj, samples_per_segment=samples_per_segment)
+
+        with st.expander(f"Spline `{obj.get('id')}` — details", expanded=idx == 0):
+            st.markdown(
+                f"""
+                | Field | Value |
+                |---|---|
+                | Control points (in JSON) | **{len(control)}** |
+                | Sampled curve points (computed) | **{len(dense)}** |
+                | `tension` | {tension} |
+                | `showControlPoints` | {obj.get('showControlPoints', False)} |
+                """
+            )
+
+            col_ctrl, col_dense = st.columns(2)
+            with col_ctrl:
+                st.caption("Control points — stored in `json_data`")
+                st.dataframe(
+                    pd.DataFrame(control, columns=["x", "y"]),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            with col_dense:
+                st.caption("Sampled polyline — use `sample_spline()` downstream")
+                st.dataframe(
+                    pd.DataFrame(dense, columns=["x", "y"]).head(40),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+                if len(dense) > 40:
+                    st.caption(f"Showing first 40 of {len(dense)} sampled points.")
+
+            st.code(
+                {
+                    "id": obj.get("id"),
+                    "type": "spline",
+                    "points": obj.get("points"),
+                    "tension": tension,
+                    "showControlPoints": obj.get("showControlPoints"),
+                },
+                language="json",
+            )
+
+    if canvas_result.image_data is not None and splines:
+        overlay = Image.fromarray(canvas_result.image_data.copy())
+        draw = ImageDraw.Draw(overlay)
+        obj = splines[-1]
+        control = spline_control_points(obj)
+        dense = sample_spline(obj, samples_per_segment=samples_per_segment)
+        if len(dense) >= 2:
+            draw.line(dense, fill=(255, 64, 64, 255), width=2)
+        for x, y in control:
+            r = control_radius
+            draw.ellipse([x - r, y - r, x + r, y + r], outline=(0, 102, 204, 255), width=2)
+        st.image(
+            overlay,
+            caption="Latest spline: blue circles = control points (JSON), red = sampled curve",
         )
 
 

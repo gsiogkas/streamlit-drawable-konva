@@ -76,6 +76,8 @@ def st_canvas(
     point_display_radius: int = 3,
     enable_viewport_controls: bool = True,
     transform_options: Optional[dict] = None,
+    spline_show_control_points: bool = False,
+    spline_control_point_radius: int = 5,
     key: Optional[str] = None,
 ) -> CanvasResult:
     """Create a Konva drawing canvas in a Streamlit app.
@@ -108,13 +110,20 @@ def st_canvas(
         ``circle``, ``point``, ``polygon``, ``spline``, ``pan``. Defaults to ``freedraw``.
 
         ``spline`` — click to place control points; right-click to finish the
-        open Catmull-Rom curve; double-click to remove the last point.
+        open Catmull-Rom curve; double-click, Backspace, or Undo to remove the
+        last point (repeat to remove several).
 
         ``rect_crop`` draws a single crop rectangle (replacing any previous one).
         The crop region is returned in ``json_data`` as an object with
         ``type`` ``"crop"`` and ``x`` / ``y`` / ``width`` / ``height``.
         Use :func:`crop_box_from_json` to read it. The crop overlay is excluded
         from ``image_data``.
+    spline_show_control_points:
+        When True, draw circle markers at spline control points while drafting
+        and on committed splines (also stored as ``showControlPoints`` on the
+        object in ``json_data``).
+    spline_control_point_radius:
+        Radius in pixels for spline control-point markers. Defaults to ``5``.
     initial_drawing:
         JSON scene to load (typically a previous ``json_data``). Objects may
         include optional interaction fields: ``locked``, ``draggable``,
@@ -178,6 +187,8 @@ def st_canvas(
             point_display_radius=point_display_radius,
             enable_viewport_controls=enable_viewport_controls,
             transform_options=transform_options,
+            spline_show_control_points=spline_show_control_points,
+            spline_control_point_radius=spline_control_point_radius,
         ),
         default={"image_data_url": None, "json_data": None},
         on_image_data_url_change=_noop,
@@ -243,3 +254,22 @@ def objects_by_group(json_data: Optional[dict]) -> dict[str, list[str]]:
             result[gid] = list(children)
 
     return result
+
+
+from streamlit_drawable_konva.spline import (
+    sample_catmull_rom,
+    sample_spline,
+    spline_control_points,
+    splines_from_json,
+)
+
+__all__ = [
+    "CanvasResult",
+    "crop_box_from_json",
+    "objects_by_group",
+    "sample_catmull_rom",
+    "sample_spline",
+    "spline_control_points",
+    "splines_from_json",
+    "st_canvas",
+]

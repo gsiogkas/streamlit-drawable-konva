@@ -2,14 +2,22 @@ import {
   FrontendRenderer,
   FrontendRendererArgs,
 } from "@streamlit/component-v2-lib";
-import { StrictMode } from "react";
-import { createRoot, Root } from "react-dom/client";
 
-import DrawableCanvas from "./DrawableCanvas";
+import { mountDrawableCanvas, type MountController } from "./mount";
 import type { CanvasDataShape, CanvasStateShape } from "./types";
 
-const reactRoots: WeakMap<FrontendRendererArgs["parentElement"], Root> =
-  new WeakMap();
+type Bridge = {
+  controller: MountController;
+  setStateValue: FrontendRendererArgs<
+    CanvasStateShape,
+    CanvasDataShape
+  >["setStateValue"];
+};
+
+const bridges = new WeakMap<
+  FrontendRendererArgs["parentElement"],
+  Bridge
+>();
 
 const CanvasRoot: FrontendRenderer<CanvasStateShape, CanvasDataShape> = (
   args,
@@ -21,39 +29,28 @@ const CanvasRoot: FrontendRenderer<CanvasStateShape, CanvasDataShape> = (
     throw new Error("Unexpected: React root element not found");
   }
 
-  let reactRoot = reactRoots.get(parentElement);
-  if (!reactRoot) {
-    reactRoot = createRoot(rootElement);
-    reactRoots.set(parentElement, reactRoot);
+  let bridge = bridges.get(parentElement);
+  if (!bridge) {
+    const holder: Bridge = {
+      setStateValue,
+      controller: null as unknown as MountController,
+    };
+    holder.controller = mountDrawableCanvas(rootElement, data, (payload) => {
+      holder.setStateValue("image_data_url", payload.image_data_url);
+      holder.setStateValue("json_data", payload.json_data);
+    });
+    bridges.set(parentElement, holder);
+    bridge = holder;
+  } else {
+    bridge.setStateValue = setStateValue;
+    bridge.controller.update(data);
   }
 
-  reactRoot.render(
-    <StrictMode>
-      <DrawableCanvas
-        fillColor={data.fillColor ?? "#eee"}
-        strokeWidth={data.strokeWidth ?? 20}
-        strokeColor={data.strokeColor ?? "black"}
-        backgroundColor={data.backgroundColor ?? ""}
-        backgroundImageURL={data.backgroundImageURL ?? null}
-        realtimeUpdateStreamlit={data.realtimeUpdateStreamlit ?? true}
-        canvasHeight={data.canvasHeight ?? 400}
-        canvasWidth={data.canvasWidth ?? 600}
-        drawingMode={data.drawingMode ?? "freedraw"}
-        initialDrawing={data.initialDrawing}
-        displayToolbar={data.displayToolbar ?? true}
-        displayRadius={data.displayRadius ?? 3}
-        enableViewportControls={data.enableViewportControls ?? true}
-        transformOptions={data.transformOptions ?? {}}
-        setStateValue={setStateValue}
-      />
-    </StrictMode>,
-  );
-
   return () => {
-    const existing = reactRoots.get(parentElement);
+    const existing = bridges.get(parentElement);
     if (existing) {
-      existing.unmount();
-      reactRoots.delete(parentElement);
+      existing.controller.destroy();
+      bridges.delete(parentElement);
     }
   };
 };

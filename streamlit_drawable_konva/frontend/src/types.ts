@@ -40,6 +40,8 @@ export type CanvasObject = {
   fill?: string;
   /** Catmull-Rom tension for ``type: "spline"`` (default 0.5). */
   tension?: number;
+  /** When true, render control-point markers on committed splines. */
+  showControlPoints?: boolean;
   rotation?: number;
   scaleX?: number;
   scaleY?: number;
@@ -103,6 +105,8 @@ export type CanvasDataShape = {
   displayRadius: number;
   enableViewportControls: boolean;
   transformOptions: TransformOptions;
+  splineShowControlPoints: boolean;
+  splineControlPointRadius: number;
 };
 
 export type CanvasStateShape = {

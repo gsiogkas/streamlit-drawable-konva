@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Drawable Konva standalone smoke</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 16px;
+      }
+      #status {
+        margin-top: 12px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Standalone mount smoke</h1>
+    <div id="host"></div>
+    <pre id="status">loading…</pre>
+    <script src="./standalone.js"></script>
+    <script>
+      (function () {
+        const status = document.getElementById("status");
+        const host = document.getElementById("host");
+        try {
+          if (!window.DrawableKonvaCanvas || !window.DrawableKonvaCanvas.mount) {
+            throw new Error("DrawableKonvaCanvas.mount missing");
+          }
+          const controller = window.DrawableKonvaCanvas.mount(
+            host,
+            {
+              canvasWidth: 480,
+              canvasHeight: 280,
+              drawingMode: "line",
+              strokeColor: "#0066cc",
+              strokeWidth: 3,
+              backgroundColor: "#f5f5f5",
+              displayToolbar: true,
+            },
+            function (payload) {
+              status.textContent =
+                "change: json objects=" +
+                ((payload.json_data && payload.json_data.objects && payload.json_data.objects.length) || 0);
+            },
+          );
+          status.textContent = "mounted ok; draw a line then mouse-up";
+          window.__drawableKonvaController = controller;
+        } catch (err) {
+          status.textContent = "FAIL: " + err;
+          console.error(err);
+        }
+      })();
+    </script>
+  </body>
+</html>

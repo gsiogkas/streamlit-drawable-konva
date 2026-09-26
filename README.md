@@ -156,6 +156,26 @@ result = st_canvas(
 - Read coordinates with `crop_box_from_json(result.json_data)` → `(x, y, width, height)`
 - Crop overlay is excluded from exported `image_data`
 
+### Spline data (`spline`)
+
+`json_data` stores **control points only** — the clicks you placed:
+
+```python
+from streamlit_drawable_konva import splines_from_json, spline_control_points, sample_spline
+
+splines = splines_from_json(result.json_data)
+control = spline_control_points(splines[0])   # [(x, y), ...] from JSON
+dense = sample_spline(splines[0], samples_per_segment=16)  # interpolated polyline
+```
+
+Each spline object looks like:
+
+```json
+{"id": "...", "type": "spline", "points": [x1, y1, x2, y2, ...], "tension": 0.5}
+```
+
+The smooth curve is **not** in JSON; use `sample_spline()` (Catmull-Rom, same `tension`) when you need a dense path for masking, metrics, or export.
+
 ### Interaction locks, groups, handles (0.3)
 
 Object fields (in `initial_drawing` / `json_data`):
@@ -200,14 +220,17 @@ behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
 - Registered as `streamlit-drawable-konva.st_canvas` via the in-package
   `streamlit_drawable_konva/pyproject.toml` manifest (`asset_dir = frontend/build`).
 - Requires Streamlit `>= 1.51` (Components v2).
-- Frontend toolchain targets Node `>= 18` (Vite 5).
+- Frontend toolchain targets Node `>= 18` (Vite 6).
+- Host-agnostic mount: `frontend/build/standalone.js` exposes
+  `window.DrawableKonvaCanvas.mount(element, props, onChange)` for non-Streamlit
+  hosts (e.g. Violit `register_js_widget`). Streamlit still uses `build/index.js`.
 
 ## Publishing (GitHub / PyPI / Streamlit Cloud / gallery)
 
 Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
 GitHub / PyPI / Streamlit Cloud / gallery after the first release).
 
-Current version: **0.3.2**.
+Current version: **0.4.0**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)
