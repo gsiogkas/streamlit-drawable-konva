@@ -1,6 +1,6 @@
 # Streamlit Drawable Konva
 
-![Usage demo — draw, spline, background image, viewport, crop, locks, groups, and export](docs/assets/usage.gif)
+![Usage demo — draw, spline, background, crop, image comparison, and export](docs/assets/usage.gif)
 
 **Live demo:** [drawable-konva-demo.streamlit.app](https://drawable-konva-demo.streamlit.app)
 
