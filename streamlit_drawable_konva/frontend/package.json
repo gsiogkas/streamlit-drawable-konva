@@ -1,15 +1,16 @@
 {
   "name": "streamlit-drawable-konva-frontend",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run clean && npm run typecheck && npm run build:frontend:production && npm run build:standalone:production",
+    "build": "npm run clean && npm run typecheck && npm run build:frontend:production && npm run build:comparison:production && npm run build:standalone:production",
     "build:frontend:production": "cross-env NODE_ENV=production vite build",
+    "build:comparison:production": "cross-env NODE_ENV=production vite build --config vite.comparison.config.ts",
     "build:standalone:production": "cross-env NODE_ENV=production vite build --config vite.standalone.config.ts",
     "clean": "rimraf build",
     "dev": "cross-env NODE_ENV=development vite build --watch",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\" vite.config.ts vite.standalone.config.ts",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" vite.config.ts vite.standalone.config.ts vite.comparison.config.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

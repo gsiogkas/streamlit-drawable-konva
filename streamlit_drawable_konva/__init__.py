@@ -262,9 +262,11 @@ from streamlit_drawable_konva.spline import (
     spline_control_points,
     splines_from_json,
 )
+from streamlit_drawable_konva.comparison import coerce_image, st_image_comparison
 
 __all__ = [
     "CanvasResult",
+    "coerce_image",
     "crop_box_from_json",
     "objects_by_group",
     "sample_catmull_rom",
@@ -272,4 +274,5 @@ __all__ = [
     "spline_control_points",
     "splines_from_json",
     "st_canvas",
+    "st_image_comparison",
 ]

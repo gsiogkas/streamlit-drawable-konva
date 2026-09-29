@@ -1,8 +1,12 @@
 # Ship a minimal metadata file that can be picked up by Streamlit at runtime.
 [project]
 name = "streamlit-drawable-konva"
-version = "0.4.0"
+version = "0.5.0"
 
 [[tool.streamlit.component.components]]
 name = "st_canvas"
+asset_dir = "frontend/build"
+
+[[tool.streamlit.component.components]]
+name = "st_image_comparison"
 asset_dir = "frontend/build"

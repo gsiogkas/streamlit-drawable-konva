@@ -177,3 +177,20 @@ def test_objects_by_group():
     grouped = objects_by_group(scene)
     assert set(grouped["g1"]) == {"a", "b"}
     assert grouped["solo"] == ["solo"]
+
+
+def test_coerce_image_pil_and_array():
+    from PIL import Image
+
+    from streamlit_drawable_konva import coerce_image
+
+    pil = Image.new("RGB", (10, 8), color=(1, 2, 3))
+    out = coerce_image(pil)
+    assert out.size == (10, 8)
+    assert out.mode == "RGBA"
+
+    import numpy as np
+
+    arr = np.zeros((5, 6, 3), dtype=np.uint8)
+    out2 = coerce_image(arr)
+    assert out2.size == (6, 5)

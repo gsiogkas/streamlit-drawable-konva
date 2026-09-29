@@ -16,6 +16,7 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 
 - Freehand, line, rect, circle, point, polygon, **spline** (Catmull-Rom through clicks) drawing
 - **Rect crop** — single crop region with dimmed overlay (`rect_crop` mode)
+- **Image comparison (0.5)** — `st_image_comparison` before/after slider companion
 - **Interaction locks & groups (0.3)** — per-object `locked`, `groupId`, axis `dragConstraint`, `transform_options`
 - Transform mode (move / scale / rotate); double-click to delete
 - **Viewport zoom, pan, and tilt** (display-only; see below)
@@ -23,6 +24,7 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 - Realtime or on-demand updates to Streamlit
 - Undo / redo / clear toolbar
 - Returns RGBA `image_data` and scene `json_data`
+- **Host-agnostic mount (0.4)** — `standalone.js` / `DrawableKonvaCanvas.mount` for Violit embeds
 
 ### Viewport: zoom / pan / tilt
 
@@ -148,6 +150,24 @@ result = st_canvas(
 # result.json_data  -> dict | None
 ```
 
+### Image comparison (`st_image_comparison`)
+
+Before/after slider companion (same package; also available on Violit as
+`vl_image_comparison`):
+
+```python
+from streamlit_drawable_konva import st_image_comparison
+
+st_image_comparison(
+    img1,  # PIL / path / ndarray / data URL
+    img2,
+    label1="Before",
+    label2="After",
+    width=700,
+    starting_position=50,
+)
+```
+
 ### Crop controls (`rect_crop`)
 
 - Draw one rectangle; a new draw replaces the previous crop
@@ -217,20 +237,22 @@ behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
 
 ## Packaging notes
 
-- Registered as `streamlit-drawable-konva.st_canvas` via the in-package
+- Registered as `streamlit-drawable-konva.st_canvas` and
+  `streamlit-drawable-konva.st_image_comparison` via the in-package
   `streamlit_drawable_konva/pyproject.toml` manifest (`asset_dir = frontend/build`).
 - Requires Streamlit `>= 1.51` (Components v2).
 - Frontend toolchain targets Node `>= 18` (Vite 6).
 - Host-agnostic mount: `frontend/build/standalone.js` exposes
-  `window.DrawableKonvaCanvas.mount(element, props, onChange)` for non-Streamlit
-  hosts (e.g. Violit `register_js_widget`). Streamlit still uses `build/index.js`.
+  `window.DrawableKonvaCanvas.mount` and
+  `window.DrawableKonvaCanvas.mountImageComparison` for non-Streamlit hosts
+  (e.g. Violit). Streamlit uses `build/index.js` and `build/comparison.js`.
 
 ## Publishing (GitHub / PyPI / Streamlit Cloud / gallery)
 
 Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
 GitHub / PyPI / Streamlit Cloud / gallery after the first release).
 
-Current version: **0.4.0**.
+Current version: **0.5.0**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)

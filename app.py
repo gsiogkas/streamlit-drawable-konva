@@ -16,6 +16,7 @@ from streamlit_drawable_konva import (
     spline_control_points,
     splines_from_json,
     st_canvas,
+    st_image_comparison,
 )
 
 st.set_page_config(
@@ -176,6 +177,42 @@ def png_export() -> None:
         )
         st.image(im)
         st.code(f"data:image/png;base64,{b64[:80]}...", language="text")
+
+
+def image_comparison_demo() -> None:
+    st.markdown(
+        """
+        ### Image comparison
+
+        Before/after slider companion to the drawable canvas (same idea as
+        [streamlit-image-comparison](https://pypi.org/project/streamlit-image-comparison/)).
+
+        Typical flow: use a photo as canvas background, annotate, then compare
+        the original to `image_data`.
+        """
+    )
+    w, h = 640, 360
+    before = Image.new("RGB", (w, h), "#dce8f5")
+    draw_b = ImageDraw.Draw(before)
+    draw_b.rectangle([40, 40, 280, 200], outline="#2a6f97", width=4)
+    draw_b.text((50, 50), "before", fill="#1b4332")
+
+    after = before.copy()
+    draw_a = ImageDraw.Draw(after)
+    draw_a.ellipse([320, 80, 520, 280], outline="#e67e22", width=5)
+    draw_a.line([(80, 220), (560, 300)], fill="#c0392b", width=6)
+    draw_a.text((330, 90), "after", fill="#e67e22")
+
+    st_image_comparison(
+        before,
+        after,
+        label1="Before",
+        label2="After",
+        width=w,
+        height=h,
+        starting_position=45,
+        key="compare_demo",
+    )
 
 
 def viewport_controls() -> None:
@@ -616,6 +653,7 @@ def axis_handles_demo() -> None:
 PAGES = {
     "About": about,
     "Basic example": basic_example,
+    "Image comparison": image_comparison_demo,
     "Locks & transform options": locks_and_transform_options,
     "Groups": groups_demo,
     "Axis handles": axis_handles_demo,
