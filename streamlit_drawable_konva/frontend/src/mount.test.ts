@@ -12,6 +12,8 @@ describe("normalizeCanvasProps", () => {
     expect(props.canvasWidth).toBe(600);
     expect(props.splineShowControlPoints).toBe(false);
     expect(props.displayToolPicker).toBe(false);
+    expect(props.toolPickerStyle).toBe("labels");
+    expect(props.displayColorPickers).toBe(false);
     expect(props.tools.length).toBeGreaterThan(5);
     expect(props.initialDrawing).toEqual(emptyScene());
   });
@@ -24,6 +26,7 @@ describe("normalizeCanvasProps", () => {
       splineControlPointRadius: 7,
       tools: ["spline", "transform"],
       displayToolPicker: true,
+      toolPickerStyle: "icons",
     });
     expect(props.drawingMode).toBe("spline");
     expect(props.canvasHeight).toBe(320);
@@ -31,6 +34,7 @@ describe("normalizeCanvasProps", () => {
     expect(props.splineControlPointRadius).toBe(7);
     expect(props.tools).toEqual(["spline", "transform"]);
     expect(props.displayToolPicker).toBe(true);
+    expect(props.toolPickerStyle).toBe("icons");
   });
 
   it("clamps drawingMode to the tools allow-list", () => {

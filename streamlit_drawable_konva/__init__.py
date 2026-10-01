@@ -80,6 +80,8 @@ def st_canvas(
     spline_control_point_radius: int = 5,
     tools: Optional[list[str]] = None,
     display_tool_picker: bool = False,
+    tool_picker_style: str = "labels",
+    display_color_pickers: bool = False,
     key: Optional[str] = None,
 ) -> CanvasResult:
     """Create a Konva drawing canvas in a Streamlit app.
@@ -128,6 +130,13 @@ def st_canvas(
         When True, show an in-canvas tool button row for the allow-listed
         modes. Mode switches locally inside the widget (host ``drawing_mode``
         still wins when that prop changes).
+    tool_picker_style:
+        ``"labels"`` (default text buttons) or ``"icons"`` (compact SVG icons
+        with hover titles). Only applies when ``display_tool_picker`` is True.
+    display_color_pickers:
+        When True, show stroke/fill color inputs on the canvas toolbar. Picks
+        update drawing colors locally (host ``stroke_color`` / ``fill_color``
+        still win when those props change).
     spline_show_control_points:
         When True, draw circle markers at spline control points while drafting
         and on committed splines (also stored as ``showControlPoints`` on the
@@ -180,6 +189,8 @@ def st_canvas(
         toolbar_h = 72 if enable_viewport_controls else 40
     if display_tool_picker:
         toolbar_h += 40
+    if display_color_pickers:
+        toolbar_h += 8
     component_height = height + toolbar_h + 8
 
     raw = _get_component()(
@@ -203,6 +214,8 @@ def st_canvas(
             spline_control_point_radius=spline_control_point_radius,
             tools=tools,
             display_tool_picker=display_tool_picker,
+            tool_picker_style=tool_picker_style,
+            display_color_pickers=display_color_pickers,
         ),
         default={"image_data_url": None, "json_data": None},
         on_image_data_url_change=_noop,

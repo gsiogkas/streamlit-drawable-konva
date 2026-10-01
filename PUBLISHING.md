@@ -6,7 +6,7 @@ For later releases, see [Updating an existing release](#updating-an-existing-rel
 
 Live demo: https://drawable-konva-demo.streamlit.app
 
-Current package version: **0.6.0**
+Current package version: **0.7.0**
 
 ---
 
@@ -257,7 +257,7 @@ cp docs/assets/usage.gif ../violit-drawable-konva/docs/assets/usage.gif
 
 ---
 
-## Quick PyPI update (this release: 0.5.0 → 0.6.0)
+## Quick PyPI update (this release: 0.6.0 → 0.7.0)
 
 After `main` is pushed with the bumped version and built frontend:
 
@@ -270,12 +270,12 @@ uv publish   # or: UV_PUBLISH_TOKEN=pypi-... uv publish
 # https://pypi.org/project/streamlit-drawable-konva/
 
 pip install -U streamlit-drawable-konva
-# expect 0.6.0
+# expect 0.7.0
 ```
 
 Optional tag:
 
 ```bash
-git tag v0.6.0
-git push origin v0.6.0
+git tag v0.7.0
+git push origin v0.7.0
 ```

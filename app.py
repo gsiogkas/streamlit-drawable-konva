@@ -89,6 +89,12 @@ def basic_example() -> None:
     realtime_update = st.sidebar.checkbox("Update in realtime", True)
     display_toolbar = st.sidebar.checkbox("Display toolbar", True)
     display_tool_picker = st.sidebar.checkbox("Display in-canvas tool picker", True)
+    tool_picker_style = st.sidebar.selectbox(
+        "Tool picker style:",
+        ("labels", "icons"),
+        index=1,
+    )
+    display_color_pickers = st.sidebar.checkbox("Display color pickers on canvas", True)
 
     canvas_result = st_canvas(
         fill_color="rgba(255, 165, 0, 0.3)",
@@ -103,6 +109,8 @@ def basic_example() -> None:
         point_display_radius=point_display_radius if drawing_mode == "point" else 0,
         display_toolbar=display_toolbar,
         display_tool_picker=display_tool_picker,
+        tool_picker_style=tool_picker_style,
+        display_color_pickers=display_color_pickers,
         key="basic_example",
     )
 

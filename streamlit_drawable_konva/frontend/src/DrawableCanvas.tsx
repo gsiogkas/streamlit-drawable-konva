@@ -56,7 +56,8 @@ import {
   isPointDraft,
   undoDraftPoint,
 } from "./spline";
-import { clampDrawingMode, TOOL_PICKER_LABELS } from "./tools";
+import { clampDrawingMode, TOOL_PICKER_LABELS, TOOL_PICKER_TITLES } from "./tools";
+import { ToolIcon } from "./ToolIcons";
 
 type SetStateValue = (
   name: "image_data_url" | "json_data",
@@ -153,6 +154,41 @@ const CropOverlay: FC<CropOverlayProps> = ({
   );
 };
 
+function cssColorToHex(value: string, fallback = "#000000"): string {
+  const v = (value || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) {
+    const r = v[1];
+    const g = v[2];
+    const b = v[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  const m = v.match(
+    /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i,
+  );
+  if (m) {
+    const hex = (n: string) =>
+      Math.max(0, Math.min(255, Math.round(Number(n))))
+        .toString(16)
+        .padStart(2, "0");
+    return `#${hex(m[1])}${hex(m[2])}${hex(m[3])}`;
+  }
+  return fallback;
+}
+
+function preserveAlphaFill(previous: string, hex: string): string {
+  const m = (previous || "").match(
+    /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\)$/i,
+  );
+  if (m) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${m[4]})`;
+  }
+  return hex;
+}
+
 /** Convert pointer position into content coordinates (accounts for viewport). */
 function pointerPos(stage: Konva.Stage | null): { x: number; y: number } | null {
   if (!stage) return null;
@@ -169,9 +205,9 @@ function pointerPos(stage: Konva.Stage | null): { x: number; y: number } | null 
 }
 
 const DrawableCanvas: FC<DrawableCanvasProps> = ({
-  fillColor,
+  fillColor: fillColorProp,
   strokeWidth,
-  strokeColor,
+  strokeColor: strokeColorProp,
   backgroundColor,
   backgroundImageURL,
   realtimeUpdateStreamlit,
@@ -180,6 +216,8 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   drawingMode: drawingModeProp,
   tools,
   displayToolPicker,
+  toolPickerStyle,
+  displayColorPickers,
   initialDrawing,
   displayToolbar,
   displayRadius,
@@ -218,6 +256,8 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   const [localMode, setLocalMode] = useState<DrawingMode>(() =>
     clampDrawingMode(drawingModeProp, tools),
   );
+  const [localStroke, setLocalStroke] = useState(strokeColorProp);
+  const [localFill, setLocalFill] = useState(fillColorProp);
 
   const toolsKey = tools.join(",");
 
@@ -228,9 +268,20 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tools via toolsKey
   }, [drawingModeProp, toolsKey]);
 
+  useEffect(() => {
+    setLocalStroke(strokeColorProp);
+  }, [strokeColorProp]);
+
+  useEffect(() => {
+    setLocalFill(fillColorProp);
+  }, [fillColorProp]);
+
   const drawingMode = displayToolPicker
     ? localMode
     : clampDrawingMode(drawingModeProp, tools);
+
+  const strokeColor = displayColorPickers ? localStroke : strokeColorProp;
+  const fillColor = displayColorPickers ? localFill : fillColorProp;
 
   const selectTool = useCallback(
     (mode: DrawingMode) => {
@@ -1071,7 +1122,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     <div
       style={{ fontFamily: "var(--st-font, sans-serif)", width: canvasWidth }}
     >
-      {(displayToolbar || displayToolPicker) && (
+      {(displayToolbar || displayToolPicker || displayColorPickers) && (
         <div
           style={{
             display: "flex",
@@ -1084,22 +1135,92 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
           {displayToolPicker &&
             tools.map((mode) => {
               const active = mode === drawingMode;
+              const useIcons = toolPickerStyle === "icons";
               return (
                 <button
                   key={mode}
                   type="button"
-                  title={mode}
+                  title={TOOL_PICKER_TITLES[mode]}
+                  aria-label={TOOL_PICKER_TITLES[mode]}
+                  aria-pressed={active}
                   onClick={() => selectTool(mode)}
                   style={{
                     fontWeight: active ? 700 : 400,
                     outline: active ? "2px solid currentColor" : undefined,
                     outlineOffset: 1,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 4,
+                    minWidth: useIcons ? 32 : undefined,
+                    minHeight: useIcons ? 28 : undefined,
+                    padding: useIcons ? "4px 6px" : undefined,
                   }}
                 >
-                  {TOOL_PICKER_LABELS[mode]}
+                  {useIcons ? (
+                    <ToolIcon mode={mode} size={16} />
+                  ) : (
+                    TOOL_PICKER_LABELS[mode]
+                  )}
                 </button>
               );
             })}
+          {displayColorPickers && (
+            <>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 12,
+                }}
+                title="Stroke color"
+              >
+                <span style={{ opacity: 0.75 }}>Stroke</span>
+                <input
+                  type="color"
+                  value={cssColorToHex(strokeColor, "#000000")}
+                  onChange={(e) => setLocalStroke(e.target.value)}
+                  aria-label="Stroke color"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    padding: 0,
+                    border: "1px solid #ccc",
+                    background: "transparent",
+                    cursor: "pointer",
+                  }}
+                />
+              </label>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 12,
+                }}
+                title="Fill color"
+              >
+                <span style={{ opacity: 0.75 }}>Fill</span>
+                <input
+                  type="color"
+                  value={cssColorToHex(fillColor, "#eeeeee")}
+                  onChange={(e) =>
+                    setLocalFill(preserveAlphaFill(fillColor, e.target.value))
+                  }
+                  aria-label="Fill color"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    padding: 0,
+                    border: "1px solid #ccc",
+                    background: "transparent",
+                    cursor: "pointer",
+                  }}
+                />
+              </label>
+            </>
+          )}
           {displayToolbar && (
             <>
               <button

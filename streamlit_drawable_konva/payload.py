@@ -25,7 +25,10 @@ def build_component_data(
     spline_control_point_radius: int = 5,
     tools: Optional[list[str]] = None,
     display_tool_picker: bool = False,
+    tool_picker_style: str = "labels",
+    display_color_pickers: bool = False,
 ) -> dict[str, Any]:
+    style = tool_picker_style if tool_picker_style in ("labels", "icons") else "labels"
     return {
         "fillColor": fill_color,
         "strokeWidth": stroke_width,
@@ -46,4 +49,6 @@ def build_component_data(
         "splineControlPointRadius": spline_control_point_radius,
         "tools": list(tools) if tools else [],
         "displayToolPicker": bool(display_tool_picker),
+        "toolPickerStyle": style,
+        "displayColorPickers": bool(display_color_pickers),
     }

@@ -107,6 +107,10 @@ export type CanvasDataShape = {
   tools: DrawingMode[];
   /** Show an in-canvas tool picker (switches mode locally; host may still pass drawingMode). */
   displayToolPicker: boolean;
+  /** ``labels`` (default) or ``icons`` for the tool picker buttons. */
+  toolPickerStyle: "labels" | "icons";
+  /** Show stroke/fill ``<input type="color">`` controls on the canvas toolbar. */
+  displayColorPickers: boolean;
   initialDrawing: CanvasScene;
   displayToolbar: boolean;
   displayRadius: number;

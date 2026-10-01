@@ -1,5 +1,9 @@
 import { emptyScene } from "./scene";
-import { clampDrawingMode, normalizeTools } from "./tools";
+import {
+  clampDrawingMode,
+  normalizeToolPickerStyle,
+  normalizeTools,
+} from "./tools";
 import type { CanvasDataShape } from "./types";
 
 /** Normalize host props to the canvas component shape (shared by Streamlit / Violit). */
@@ -19,6 +23,8 @@ export function normalizeCanvasProps(
     drawingMode: clampDrawingMode(data?.drawingMode ?? "freedraw", tools),
     tools,
     displayToolPicker: data?.displayToolPicker ?? false,
+    toolPickerStyle: normalizeToolPickerStyle(data?.toolPickerStyle),
+    displayColorPickers: data?.displayColorPickers ?? false,
     initialDrawing: data?.initialDrawing ?? emptyScene(),
     displayToolbar: data?.displayToolbar ?? true,
     displayRadius: data?.displayRadius ?? 3,

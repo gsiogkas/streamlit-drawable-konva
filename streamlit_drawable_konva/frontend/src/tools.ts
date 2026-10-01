@@ -14,6 +14,8 @@ export const ALL_DRAWING_MODES: readonly DrawingMode[] = [
   "pan",
 ] as const;
 
+export type ToolPickerStyle = "labels" | "icons";
+
 const MODE_SET = new Set<string>(ALL_DRAWING_MODES);
 
 export const TOOL_PICKER_LABELS: Record<DrawingMode, string> = {
@@ -29,8 +31,28 @@ export const TOOL_PICKER_LABELS: Record<DrawingMode, string> = {
   pan: "Pan",
 };
 
+/** Full titles for tooltips (icons mode especially). */
+export const TOOL_PICKER_TITLES: Record<DrawingMode, string> = {
+  freedraw: "Free draw",
+  line: "Line",
+  rect: "Rectangle",
+  rect_crop: "Crop rectangle",
+  circle: "Circle",
+  point: "Point",
+  polygon: "Polygon",
+  spline: "Spline",
+  transform: "Transform / select",
+  pan: "Pan",
+};
+
 export function isDrawingMode(value: unknown): value is DrawingMode {
   return typeof value === "string" && MODE_SET.has(value);
+}
+
+export function normalizeToolPickerStyle(
+  value: unknown,
+): ToolPickerStyle {
+  return value === "icons" ? "icons" : "labels";
 }
 
 /**
