@@ -6,7 +6,7 @@ For later releases, see [Updating an existing release](#updating-an-existing-rel
 
 Live demo: https://drawable-konva-demo.streamlit.app
 
-Current package version: **0.5.0**
+Current package version: **0.6.0**
 
 ---
 
@@ -236,7 +236,46 @@ Edit `components/registry/components/streamlit-drawable-konva.json` in your fork
 
 - [ ] Version bumped in both `pyproject.toml` files (+ frontend `package.json`)
 - [ ] Frontend rebuilt and committed if UI changed
+- [ ] Optional: refresh [`docs/assets/usage.gif`](docs/assets/usage.gif) from the live demo (see below)
 - [ ] GitHub `main` pushed (+ optional `vX.Y.Z` tag)
 - [ ] New version uploaded with `uv publish`
 - [ ] Streamlit Cloud redeployed / rebooted
 - [ ] Gallery JSON PR only if metadata/links changed
+
+### Refreshing the usage GIF
+
+Record from the running demo (`uv run streamlit run app.py`) after enabling
+**Display in-canvas tool picker** on the basic page (or any page that shows the
+new tool row). Prefer a short loop: pick tools → draw → undo/clear → crop or
+spline. Export as `docs/assets/usage.gif`, then mirror to Violit’s
+`docs/assets/usage.gif` if that sibling README should stay in sync.
+
+```bash
+# after capturing docs/assets/usage.gif in this repo:
+cp docs/assets/usage.gif ../violit-drawable-konva/docs/assets/usage.gif
+```
+
+---
+
+## Quick PyPI update (this release: 0.5.0 → 0.6.0)
+
+After `main` is pushed with the bumped version and built frontend:
+
+```bash
+cd /path/to/streamlit-drawable-konva
+uv build
+uv publish   # or: UV_PUBLISH_TOKEN=pypi-... uv publish
+
+# verify
+# https://pypi.org/project/streamlit-drawable-konva/
+
+pip install -U streamlit-drawable-konva
+# expect 0.6.0
+```
+
+Optional tag:
+
+```bash
+git tag v0.6.0
+git push origin v0.6.0
+```

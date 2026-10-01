@@ -1,10 +1,12 @@
 import { emptyScene } from "./scene";
+import { clampDrawingMode, normalizeTools } from "./tools";
 import type { CanvasDataShape } from "./types";
 
 /** Normalize host props to the canvas component shape (shared by Streamlit / Violit). */
 export function normalizeCanvasProps(
   data: Partial<CanvasDataShape> | null | undefined,
 ): CanvasDataShape {
+  const tools = normalizeTools(data?.tools);
   return {
     fillColor: data?.fillColor ?? "#eee",
     strokeWidth: data?.strokeWidth ?? 20,
@@ -14,7 +16,9 @@ export function normalizeCanvasProps(
     realtimeUpdateStreamlit: data?.realtimeUpdateStreamlit ?? true,
     canvasHeight: data?.canvasHeight ?? 400,
     canvasWidth: data?.canvasWidth ?? 600,
-    drawingMode: data?.drawingMode ?? "freedraw",
+    drawingMode: clampDrawingMode(data?.drawingMode ?? "freedraw", tools),
+    tools,
+    displayToolPicker: data?.displayToolPicker ?? false,
     initialDrawing: data?.initialDrawing ?? emptyScene(),
     displayToolbar: data?.displayToolbar ?? true,
     displayRadius: data?.displayRadius ?? 3,

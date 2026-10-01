@@ -100,6 +100,13 @@ export type CanvasDataShape = {
   canvasHeight: number;
   canvasWidth: number;
   drawingMode: DrawingMode;
+  /**
+   * Allow-list of drawing modes. Empty / omitted → all modes.
+   * When the active mode is not listed, the canvas clamps to ``tools[0]``.
+   */
+  tools: DrawingMode[];
+  /** Show an in-canvas tool picker (switches mode locally; host may still pass drawingMode). */
+  displayToolPicker: boolean;
   initialDrawing: CanvasScene;
   displayToolbar: boolean;
   displayRadius: number;

@@ -88,6 +88,7 @@ def basic_example() -> None:
     bg_image = st.sidebar.file_uploader("Background image:", type=["png", "jpg", "jpeg"])
     realtime_update = st.sidebar.checkbox("Update in realtime", True)
     display_toolbar = st.sidebar.checkbox("Display toolbar", True)
+    display_tool_picker = st.sidebar.checkbox("Display in-canvas tool picker", True)
 
     canvas_result = st_canvas(
         fill_color="rgba(255, 165, 0, 0.3)",
@@ -101,6 +102,7 @@ def basic_example() -> None:
         drawing_mode=drawing_mode,
         point_display_radius=point_display_radius if drawing_mode == "point" else 0,
         display_toolbar=display_toolbar,
+        display_tool_picker=display_tool_picker,
         key="basic_example",
     )
 

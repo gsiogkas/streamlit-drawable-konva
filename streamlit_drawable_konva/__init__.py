@@ -78,6 +78,8 @@ def st_canvas(
     transform_options: Optional[dict] = None,
     spline_show_control_points: bool = False,
     spline_control_point_radius: int = 5,
+    tools: Optional[list[str]] = None,
+    display_tool_picker: bool = False,
     key: Optional[str] = None,
 ) -> CanvasResult:
     """Create a Konva drawing canvas in a Streamlit app.
@@ -118,6 +120,14 @@ def st_canvas(
         ``type`` ``"crop"`` and ``x`` / ``y`` / ``width`` / ``height``.
         Use :func:`crop_box_from_json` to read it. The crop overlay is excluded
         from ``image_data``.
+    tools:
+        Optional allow-list of drawing modes. Empty / ``None`` means all modes.
+        If ``drawing_mode`` is not in the list, the canvas clamps to the first
+        entry. Useful to restrict Inspect-style UIs to a subset of tools.
+    display_tool_picker:
+        When True, show an in-canvas tool button row for the allow-listed
+        modes. Mode switches locally inside the widget (host ``drawing_mode``
+        still wins when that prop changes).
     spline_show_control_points:
         When True, draw circle markers at spline control points while drafting
         and on committed splines (also stored as ``showControlPoints`` on the
@@ -168,6 +178,8 @@ def st_canvas(
     toolbar_h = 0
     if display_toolbar:
         toolbar_h = 72 if enable_viewport_controls else 40
+    if display_tool_picker:
+        toolbar_h += 40
     component_height = height + toolbar_h + 8
 
     raw = _get_component()(
@@ -189,6 +201,8 @@ def st_canvas(
             transform_options=transform_options,
             spline_show_control_points=spline_show_control_points,
             spline_control_point_radius=spline_control_point_radius,
+            tools=tools,
+            display_tool_picker=display_tool_picker,
         ),
         default={"image_data_url": None, "json_data": None},
         on_image_data_url_change=_noop,

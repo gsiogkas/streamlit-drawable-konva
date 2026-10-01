@@ -45,6 +45,7 @@ import type {
   CanvasDataShape,
   CanvasObject,
   CanvasScene,
+  DrawingMode,
   ViewportState,
 } from "./types";
 import { CROP_HIT_FILL, identityViewport } from "./types";
@@ -55,6 +56,7 @@ import {
   isPointDraft,
   undoDraftPoint,
 } from "./spline";
+import { clampDrawingMode, TOOL_PICKER_LABELS } from "./tools";
 
 type SetStateValue = (
   name: "image_data_url" | "json_data",
@@ -175,7 +177,9 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   realtimeUpdateStreamlit,
   canvasHeight,
   canvasWidth,
-  drawingMode,
+  drawingMode: drawingModeProp,
+  tools,
+  displayToolPicker,
   initialDrawing,
   displayToolbar,
   displayRadius,
@@ -194,6 +198,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
   const lastBgRef = useRef<string>(
     `${backgroundColor}|${backgroundImageURL ?? ""}`,
   );
+  const lastObjectsKeyRef = useRef<string | null>(null);
   const isPanningRef = useRef(false);
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -210,6 +215,31 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     identityViewport(canvasWidth, canvasHeight),
   );
   const [bgImage] = useImage(backgroundImageURL ?? "", "anonymous");
+  const [localMode, setLocalMode] = useState<DrawingMode>(() =>
+    clampDrawingMode(drawingModeProp, tools),
+  );
+
+  const toolsKey = tools.join(",");
+
+  // Host drawingMode / tools allow-list win when they change.
+  useEffect(() => {
+    setLocalMode(clampDrawingMode(drawingModeProp, tools));
+    // toolsKey captures allow-list identity without resetting on new array refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tools via toolsKey
+  }, [drawingModeProp, toolsKey]);
+
+  const drawingMode = displayToolPicker
+    ? localMode
+    : clampDrawingMode(drawingModeProp, tools);
+
+  const selectTool = useCallback(
+    (mode: DrawingMode) => {
+      setLocalMode(clampDrawingMode(mode, tools));
+      setDraft(null);
+      setSelectedId(null);
+    },
+    [tools],
+  );
 
   const resolvedTransformOptions = useMemo(
     () => normalizeTransformOptions(transformOptions, scene),
@@ -255,11 +285,13 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     const bgChanged = lastBgRef.current !== bgKey;
     lastBgRef.current = bgKey;
 
+    const objectsChanged =
+      lastObjectsKeyRef.current === null ||
+      lastObjectsKeyRef.current !== objectsKey;
+    lastObjectsKeyRef.current = objectsKey;
+
     setScene((prev) => {
-      const shouldReplace =
-        bgChanged ||
-        next.objects.length > 0 ||
-        prev.objects.length === 0;
+      const shouldReplace = bgChanged || objectsChanged;
 
       if (!shouldReplace) {
         return { ...prev, background: backgroundColor };
@@ -1039,7 +1071,7 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
     <div
       style={{ fontFamily: "var(--st-font, sans-serif)", width: canvasWidth }}
     >
-      {displayToolbar && (
+      {(displayToolbar || displayToolPicker) && (
         <div
           style={{
             display: "flex",
@@ -1049,48 +1081,71 @@ const DrawableCanvas: FC<DrawableCanvasProps> = ({
             alignItems: "center",
           }}
         >
-          <button
-            type="button"
-            onClick={undo}
-            disabled={historyIndex <= 0 && !canUndoDraftPoint(draft)}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            onClick={redo}
-            disabled={historyIndex >= history.length - 1}
-          >
-            Redo
-          </button>
-          <button type="button" onClick={clear}>
-            Clear
-          </button>
-          {!realtimeUpdateStreamlit && (
-            <button type="button" onClick={sendNow}>
-              Send to Streamlit
-            </button>
-          )}
-          {enableViewportControls && (
+          {displayToolPicker &&
+            tools.map((mode) => {
+              const active = mode === drawingMode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  title={mode}
+                  onClick={() => selectTool(mode)}
+                  style={{
+                    fontWeight: active ? 700 : 400,
+                    outline: active ? "2px solid currentColor" : undefined,
+                    outlineOffset: 1,
+                  }}
+                >
+                  {TOOL_PICKER_LABELS[mode]}
+                </button>
+              );
+            })}
+          {displayToolbar && (
             <>
-              <button type="button" onClick={() => zoomBy(ZOOM_STEP)}>
-                Zoom +
+              <button
+                type="button"
+                onClick={undo}
+                disabled={historyIndex <= 0 && !canUndoDraftPoint(draft)}
+              >
+                Undo
               </button>
-              <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP)}>
-                Zoom −
+              <button
+                type="button"
+                onClick={redo}
+                disabled={historyIndex >= history.length - 1}
+              >
+                Redo
               </button>
-              <button type="button" onClick={() => tiltBy(-TILT_STEP_DEG)}>
-                Tilt ↶
+              <button type="button" onClick={clear}>
+                Clear
               </button>
-              <button type="button" onClick={() => tiltBy(TILT_STEP_DEG)}>
-                Tilt ↷
-              </button>
-              <button type="button" onClick={resetViewport}>
-                Reset view
-              </button>
-              <span style={{ fontSize: 12, opacity: 0.75 }}>
-                {zoomPct}% · {Math.round(viewport.rotation)}°
-              </span>
+              {!realtimeUpdateStreamlit && (
+                <button type="button" onClick={sendNow}>
+                  Send to Streamlit
+                </button>
+              )}
+              {enableViewportControls && (
+                <>
+                  <button type="button" onClick={() => zoomBy(ZOOM_STEP)}>
+                    Zoom +
+                  </button>
+                  <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP)}>
+                    Zoom −
+                  </button>
+                  <button type="button" onClick={() => tiltBy(-TILT_STEP_DEG)}>
+                    Tilt ↶
+                  </button>
+                  <button type="button" onClick={() => tiltBy(TILT_STEP_DEG)}>
+                    Tilt ↷
+                  </button>
+                  <button type="button" onClick={resetViewport}>
+                    Reset view
+                  </button>
+                  <span style={{ fontSize: 12, opacity: 0.75 }}>
+                    {zoomPct}% · {Math.round(viewport.rotation)}°
+                  </span>
+                </>
+              )}
             </>
           )}
           <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.7 }}>

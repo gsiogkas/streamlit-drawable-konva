@@ -15,16 +15,17 @@ Konva-oriented fields (`x`/`y`/`points`/…), not Fabric.js schemas.
 ## Features
 
 - Freehand, line, rect, circle, point, polygon, **spline** (Catmull-Rom through clicks) drawing
+- **In-canvas tool picker (0.6)** — `tools=[…]` allow-list + `display_tool_picker=True`
 - **Rect crop** — single crop region with dimmed overlay (`rect_crop` mode)
-- **Image comparison (0.5)** — `st_image_comparison` before/after slider companion
-- **Interaction locks & groups (0.3)** — per-object `locked`, `groupId`, axis `dragConstraint`, `transform_options`
+- **Image comparison** — `st_image_comparison` before/after slider companion
+- **Interaction locks & groups** — per-object `locked`, `groupId`, axis `dragConstraint`, `transform_options`
 - Transform mode (move / scale / rotate); double-click to delete
 - **Viewport zoom, pan, and tilt** (display-only; see below)
 - Background color or image
 - Realtime or on-demand updates to Streamlit
 - Undo / redo / clear toolbar
 - Returns RGBA `image_data` and scene `json_data`
-- **Host-agnostic mount (0.4)** — `standalone.js` / `DrawableKonvaCanvas.mount` for Violit embeds
+- **Host-agnostic mount** — `standalone.js` / `DrawableKonvaCanvas.mount` for Violit embeds
 
 ### Viewport: zoom / pan / tilt
 
@@ -141,6 +142,9 @@ result = st_canvas(
     drawing_mode="freedraw",  # freedraw|line|rect|rect_crop|circle|point|polygon|spline|transform|pan
     initial_drawing=None,
     display_toolbar=True,
+    # Optional: restrict modes and/or show an in-canvas tool row
+    tools=["freedraw", "line", "rect", "polygon", "transform", "pan"],
+    display_tool_picker=True,
     point_display_radius=3,
     enable_viewport_controls=True,
     key="canvas",
@@ -252,7 +256,7 @@ behavioral differences vs `streamlit-drawable-canvas` / `-fix`.
 Step-by-step instructions: [`PUBLISHING.md`](PUBLISHING.md) (includes **updating**
 GitHub / PyPI / Streamlit Cloud / gallery after the first release).
 
-Current version: **0.5.0**.
+Current version: **0.6.0**.
 
 Order: push to GitHub → publish to PyPI → deploy `app.py` on Community Cloud →
 submit [`gallery/streamlit-drawable-konva.json`](gallery/streamlit-drawable-konva.json)
